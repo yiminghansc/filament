@@ -70,14 +70,17 @@ struct Animation {
 struct AnimatorImpl {
     vector<Animation> animations;
     BoneVector boneMatrices;
+    FFilamentAsset const* animationAsset = nullptr;
     FFilamentAsset const* asset = nullptr;
     FFilamentInstance* instance = nullptr;
     RenderableManager* renderableManager;
     TransformManager* transformManager;
     vector<float> weights;
     FixedCapacityVector<mat4f> crossFade;
-    void addChannels(const FixedCapacityVector<Entity>& nodeMap, const cgltf_animation& srcAnim,
-            Animation& dst);
+    FixedCapacityVector<mat4f> zeroTransform;
+    void addChannels(const FixedCapacityVector<Entity>& nodeMap,
+            const tsl::htrie_map<char, utils::Entity>& nameToNode,
+            const cgltf_animation& srcAnim, Animation& dst);
     void applyAnimation(const Channel& channel, float t, size_t prevIndex, size_t nextIndex);
     void stashCrossFade();
     void applyCrossFade(float alpha);
@@ -158,7 +161,7 @@ static void setTransformType(const cgltf_animation_channel& src, Channel& dst) {
     }
 }
 
-static bool validateAnimation(const cgltf_animation& anim) {
+static bool validateAnimation(const cgltf_animation& anim, bool validateMorphChannels) {
     for (cgltf_size j = 0; j < anim.channels_count; ++j) {
         const cgltf_animation_channel& channel = anim.channels[j];
         const cgltf_animation_sampler* sampler = channel.sampler;
@@ -167,6 +170,11 @@ static bool validateAnimation(const cgltf_animation& anim) {
         }
         if (!channel.sampler) {
             return false;
+        }
+        // If the animation asset and model asset are different, the animation asset does not need
+        // to contain the mesh data for the morph animations
+        if (!validateMorphChannels) {
+            continue;
         }
         cgltf_size components = 1;
         if (channel.target_path == cgltf_animation_path_type_weights) {
@@ -183,21 +191,19 @@ static bool validateAnimation(const cgltf_animation& anim) {
     return true;
 }
 
-Animator::Animator(FFilamentAsset const* asset, FFilamentInstance* instance) {
-    assert(asset->mResourcesLoaded && asset->mSourceAsset);
+bool Animator::createAnimatorImpl(
+        FFilamentAsset const* animationAsset,
+        bool validateMorphChannels) {
     mImpl = new AnimatorImpl();
-    mImpl->asset = asset;
-    mImpl->instance = instance;
-    mImpl->renderableManager = &asset->mEngine->getRenderableManager();
-    mImpl->transformManager = &asset->mEngine->getTransformManager();
+    mImpl->animationAsset = animationAsset;
 
-    const cgltf_data* srcAsset = asset->mSourceAsset->hierarchy;
+    const cgltf_data* srcAsset = animationAsset->mSourceAsset->hierarchy;
     const cgltf_animation* srcAnims = srcAsset->animations;
     for (cgltf_size i = 0, len = srcAsset->animations_count; i < len; ++i) {
         const cgltf_animation& anim = srcAnims[i];
-        if (!validateAnimation(anim)) {
+        if (!validateAnimation(anim, validateMorphChannels)) {
             GLTFIO_WARN("Disabling animation due to validation failure.");
-            return;
+            return false;
         }
     }
 
@@ -223,16 +229,57 @@ Animator::Animator(FFilamentAsset const* asset, FFilamentInstance* instance) {
                 dstAnim.duration = std::max(dstAnim.duration, maxtime);
             }
         }
+    }
 
+    return true;
+}
+
+void Animator::addAnimatedAsset(FFilamentAsset const* asset, FFilamentInstance* instance) {
+    assert(asset->mResourcesLoaded && asset->mSourceAsset);
+    mImpl->asset = asset;
+    mImpl->instance = instance;
+
+    mImpl->asset = asset;
+    mImpl->instance = instance;
+    mImpl->renderableManager = &asset->mEngine->getRenderableManager();
+    mImpl->transformManager = &asset->mEngine->getTransformManager();
+
+    const cgltf_data* srcAsset = mImpl->animationAsset->mSourceAsset->hierarchy;
+    const cgltf_animation* srcAnims = srcAsset->animations;
+    for (cgltf_size i = 0, len = srcAsset->animations_count; i < len; ++i) {
+        const cgltf_animation& srcAnim = srcAnims[i];
+        Animation& dstAnim = mImpl->animations[i];
         // Import each glTF channel into a custom data structure.
         if (instance) {
-            mImpl->addChannels(instance->mNodeMap, srcAnim, dstAnim);
+            mImpl->addChannels(instance->mNodeMap, instance->mNameToNode, srcAnim, dstAnim);
         } else {
             for (FFilamentInstance* instance : asset->mInstances) {
-                mImpl->addChannels(instance->mNodeMap, srcAnim, dstAnim);
+                mImpl->addChannels(instance->mNodeMap, instance->mNameToNode, srcAnim, dstAnim);
             }
         }
     }
+
+    // stash the original transforms
+    mImpl->stashCrossFade();
+    mImpl->zeroTransform = mImpl->crossFade;
+}
+
+Animator::Animator(FFilamentAsset const* asset, FFilamentInstance* instance) {
+    assert(asset->mResourcesLoaded && asset->mSourceAsset);
+    if (!createAnimatorImpl(asset, true)) return;
+    addAnimatedAsset(asset, instance);
+}
+
+Animator::Animator(FilamentAsset* animationAsset) {
+    FFilamentAsset* asset = downcast(animationAsset);
+    assert(asset->mSourceAsset);
+    // No need to call loadResources for animationAsset which might load meshes/textures
+    // Just need to load in the buffers.
+    if (!asset->mResourcesLoaded) {
+        cgltf_options options;
+        cgltf_load_buffers(&options, asset->mSourceAsset->hierarchy, "");
+    }
+    createAnimatorImpl(asset, false);
 }
 
 void Animator::applyCrossFade(size_t previousAnimIndex, float previousAnimTime, float alpha) {
@@ -241,13 +288,33 @@ void Animator::applyCrossFade(size_t previousAnimIndex, float previousAnimTime, 
     mImpl->applyCrossFade(alpha);
 }
 
+void Animator::addAnimatedAsset(FilamentAsset const* asset, FilamentInstance* instance) {
+    addAnimatedAsset(downcast(asset), downcast(instance));
+}
+
+void Animator::removeAnimatedAsset() {
+    // recover the original transforms
+    mImpl->crossFade = mImpl->zeroTransform;
+    mImpl->applyCrossFade(1);
+
+    // Remove all reference to animated entities
+    for (auto& animation : mImpl->animations) {
+        animation.channels.clear();
+    }
+
+    mImpl->asset = nullptr;
+    mImpl->instance = nullptr;
+    mImpl->boneMatrices.clear();
+    mImpl->weights.clear();
+}
+
 void Animator::addInstance(FFilamentInstance* instance) {
-    const cgltf_data* srcAsset = mImpl->asset->mSourceAsset->hierarchy;
+    const cgltf_data* srcAsset = mImpl->animationAsset->mSourceAsset->hierarchy;
     const cgltf_animation* srcAnims = srcAsset->animations;
     for (cgltf_size i = 0, len = srcAsset->animations_count; i < len; ++i) {
         const cgltf_animation& srcAnim = srcAnims[i];
         Animation& dstAnim = mImpl->animations[i];
-        mImpl->addChannels(instance->mNodeMap, srcAnim, dstAnim);
+        mImpl->addChannels(instance->mNodeMap, instance->mNameToNode, srcAnim, dstAnim);
     }
 }
 
@@ -375,6 +442,7 @@ void AnimatorImpl::stashCrossFade() {
 void AnimatorImpl::applyCrossFade(float alpha) {
     using Instance = TransformManager::Instance;
     auto& tm = *this->transformManager;
+    tm.openLocalTransformTransaction();
     auto& stash = this->crossFade;
     auto recursiveFn = [&tm, &stash, alpha](Instance node, size_t index, auto& fn) -> size_t {
         float3 scale0, scale1;
@@ -392,17 +460,31 @@ void AnimatorImpl::applyCrossFade(float alpha) {
         return index;
     };
     recursiveFn(tm.getInstance(asset->mRoot), 0, recursiveFn);
+    tm.commitLocalTransformTransaction();
 }
 
 void AnimatorImpl::addChannels(const FixedCapacityVector<Entity>& nodeMap,
+        const tsl::htrie_map<char, utils::Entity>& nameToNode,
         const cgltf_animation& srcAnim, Animation& dst) {
     const cgltf_animation_channel* srcChannels = srcAnim.channels;
     const cgltf_animation_sampler* srcSamplers = srcAnim.samplers;
-    const cgltf_node* nodes = asset->mSourceAsset->hierarchy->nodes;
+    const cgltf_node* nodes = animationAsset->mSourceAsset->hierarchy->nodes;
     const Sampler* samplers = dst.samplers.data();
     for (cgltf_size j = 0, nchans = srcAnim.channels_count; j < nchans; ++j) {
         const cgltf_animation_channel& srcChannel = srcChannels[j];
-        Entity targetEntity = nodeMap[srcChannel.target_node - nodes];
+        Entity targetEntity;
+        if (asset != animationAsset) {
+            const char* targetName = srcChannel.target_node->name;
+            if (targetName) {
+                const auto iter = nameToNode.find(targetName);
+                if (iter != nameToNode.end()) {
+                    targetEntity = *iter;
+                }
+            }
+        }
+        else {
+            targetEntity = nodeMap[srcChannel.target_node - nodes];
+        }
         if (UTILS_UNLIKELY(!targetEntity)) {
             if (GLTFIO_VERBOSE) {
                 slog.w << "No scene root contains node ";

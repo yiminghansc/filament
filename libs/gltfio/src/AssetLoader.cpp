@@ -639,6 +639,7 @@ void FAssetLoader::recurseEntities(const cgltf_data* srcAsset, const cgltf_node*
 
     if (name) {
         mAsset->mNameToEntity[name].push_back(entity);
+        instance->mNameToNode[name] = entity;
         if (mNameManager) {
             mNameManager->addComponent(entity);
             mNameManager->setName(mNameManager->getInstance(entity), name);

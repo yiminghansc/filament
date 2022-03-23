@@ -82,6 +82,8 @@ struct App {
     AssetLoader* assetLoader;
     FilamentAsset* asset = nullptr;
     FilamentInstance* instance = nullptr;
+    FilamentAsset* animAsset = nullptr;
+    Animator* animator = nullptr;
     NameComponentManager* names;
 
     MaterialProvider* materials;
@@ -466,6 +468,7 @@ int main(int argc, char** argv) {
     int optionIndex = handleCommandLineArguments(argc, argv, &app);
 
     utils::Path filename;
+    utils::Path animFileName;
     int num_args = argc - optionIndex;
     if (num_args >= 1) {
         filename = argv[optionIndex];
@@ -483,6 +486,13 @@ int main(int argc, char** argv) {
             }
             if (filename.isDirectory()) {
                 std::cerr << "no glTF file found in " << filename << std::endl;
+                return 1;
+            }
+        }
+        if (num_args >= 2) {
+            animFileName = argv[optionIndex + 1];
+            if (!animFileName.exists()) {
+                std::cerr << "file " << animFileName << " not found!" << std::endl;
                 return 1;
             }
         }
@@ -516,6 +526,33 @@ int main(int argc, char** argv) {
         }
     };
 
+    auto loadAnimAsset = [&app](utils::Path filename) {
+        // Peek at the file size to allow pre-allocation.
+        long contentSize = static_cast<long>(getFileSize(filename.c_str()));
+        if (contentSize <= 0) {
+            std::cerr << "Unable to open " << filename << std::endl;
+            exit(1);
+        }
+
+        // Consume the glTF file.
+        std::ifstream in(filename.c_str(), std::ifstream::binary | std::ifstream::in);
+        std::vector<uint8_t> buffer(static_cast<unsigned long>(contentSize));
+        if (!in.read((char*) buffer.data(), contentSize)) {
+            std::cerr << "Unable to read " << filename << std::endl;
+            exit(1);
+        }
+
+        // Parse the glTF file and create Filament entities.
+        app.animAsset = app.assetLoader->createAsset(buffer.data(), buffer.size());
+        buffer.clear();
+        buffer.shrink_to_fit();
+
+        if (!app.animAsset) {
+            std::cerr << "Unable to parse " << filename << std::endl;
+            exit(1);
+        }
+    };
+
     auto loadResources = [&app] (utils::Path filename) {
         // Load external textures and buffers.
         std::string gltfPath = filename.getAbsolutePath();
@@ -533,7 +570,7 @@ int main(int argc, char** argv) {
             app.resourceLoader->addTextureProvider("image/ktx2", app.ktxDecoder);
         }
 
-        if (!app.resourceLoader->asyncBeginLoad(app.asset)) {
+        if (!app.resourceLoader->loadResources(app.asset)) {
             std::cerr << "Unable to start loading resources for " << filename << std::endl;
             exit(1);
         }
@@ -542,7 +579,7 @@ int main(int argc, char** argv) {
             app.asset->getInstance()->recomputeBoundingBoxes();
         }
 
-        app.asset->releaseSourceData();
+        // app.asset->releaseSourceData();
 
         // Enable stencil writes on all material instances.
         const size_t matInstanceCount = app.instance->getMaterialInstanceCount();
@@ -556,6 +593,16 @@ int main(int argc, char** argv) {
         if (ibl) {
             app.viewer->setIndirectLight(ibl->getIndirectLight(), ibl->getSphericalHarmonics());
         }
+    };
+
+    auto loadAnimResources = [&app] (utils::Path filename) {
+        if (app.animator) {
+            app.animator->removeAnimatedAsset();
+            delete app.animator;
+        }
+
+        app.animator = new Animator(app.animAsset);
+        app.animator->addAnimatedAsset(app.asset, app.instance);
     };
 
     auto setup = [&](Engine* engine, View* view, Scene* scene) {
@@ -628,6 +675,11 @@ int main(int argc, char** argv) {
         loadResources(filename);
         app.viewer->setAsset(app.asset, app.instance);
 
+        if (!animFileName.isEmpty()) {
+            loadAnimAsset(animFileName);
+            loadAnimResources(animFileName);
+        }
+
         createGroundPlane(engine, scene, app);
         createOverdrawVisualizerEntities(engine, scene, app);
 
@@ -652,7 +704,7 @@ int main(int argc, char** argv) {
                 ImGui::Spacing();
             }
 
-            float progress = app.resourceLoader->asyncGetLoadProgress();
+            float progress = 1.0;
             if (progress < 1.0) {
                 ImGui::ProgressBar(progress);
             } else {
@@ -786,8 +838,11 @@ int main(int argc, char** argv) {
 
     auto cleanup = [&app](Engine* engine, View*, Scene*) {
         app.automationEngine->terminate();
-        app.resourceLoader->asyncCancelLoad();
+        // app.resourceLoader->asyncCancelLoad();
         app.assetLoader->destroyAsset(app.asset);
+        if (app.animAsset) {
+            app.assetLoader->destroyAsset(app.animAsset);
+        }
         app.materials->destroyMaterials();
 
         engine->destroy(app.scene.groundPlane);
@@ -816,12 +871,13 @@ int main(int argc, char** argv) {
         delete app.resourceLoader;
         delete app.stbDecoder;
         delete app.ktxDecoder;
+        delete app.animator;
 
         AssetLoader::destroy(&app.assetLoader);
     };
 
     auto animate = [&app](Engine* engine, View* view, double now) {
-        app.resourceLoader->asyncUpdateLoad();
+        // app.resourceLoader->asyncUpdateLoad();
 
         // Optionally fit the model into a unit cube at the origin.
         app.viewer->updateRootTransform();
@@ -829,7 +885,10 @@ int main(int argc, char** argv) {
         // Gradually add renderables to the scene as their textures become ready.
         app.viewer->populateScene();
 
-        app.viewer->applyAnimation(now);
+        if (app.animator) {
+            app.animator->applyAnimation(0, 0);
+            app.animator->updateBoneMatrices();
+        }
     };
 
     auto resize = [&app](Engine* engine, View* view) {
@@ -923,8 +982,23 @@ int main(int argc, char** argv) {
     filamentApp.resize(resize);
 
     filamentApp.setDropHandler([&] (std::string path) {
-        app.resourceLoader->asyncCancelLoad();
-        app.resourceLoader->evictResourceData();
+        if (path.find("animation") != std::string::npos) {
+            if (app.animAsset) {
+                app.assetLoader->destroyAsset(app.animAsset);
+            }
+            loadAnimAsset(path);
+            loadAnimResources(path);
+            return;
+        }
+        
+        if (app.animator) {
+            delete app.animator;
+            app.animator = nullptr;
+        }
+        if (app.animAsset) {
+            app.assetLoader->destroyAsset(app.animAsset);
+            app.animAsset = nullptr;
+        }
         app.viewer->removeAsset();
         app.assetLoader->destroyAsset(app.asset);
         loadAsset(path);
