@@ -26,6 +26,7 @@
 #include <math/mat4.h>
 
 #include <tsl/robin_set.h>
+#include <tsl/htrie_map.h>
 
 #include <vector>
 
@@ -104,6 +105,8 @@ struct FFilamentInstance : public FilamentInstance {
     // and therefore has the same size as the number of cgltf_node in the original asset. We
     // considered using the ECS for this, but we need Node => Entity, not the other way around.
     utils::FixedCapacityVector<utils::Entity> mNodeMap;
+
+    tsl::htrie_map<char, utils::Entity> mNameToNode;
 
     Aabb mBoundingBox;
 
