@@ -203,6 +203,14 @@ void NoopDriver::updateBufferObjectUnsynchronized(Handle<HwBufferObject> ibh, Bu
 void NoopDriver::resetBufferObject(Handle<HwBufferObject> boh) {
 }
 
+void NoopDriver::getBufferObjectHwResource(Handle<HwBufferObject> boh,
+        backend::GPUBufferCallback callback, void* user) {
+}
+
+void NoopDriver::getBufferData(Handle<HwBufferObject> boh,
+        BufferDescriptor&& bd, uint32_t byteOffset) {
+}
+
 void NoopDriver::setVertexBufferObject(Handle<HwVertexBuffer> vbh, uint32_t index,
         Handle<HwBufferObject> boh) {
 }
@@ -211,6 +219,11 @@ void NoopDriver::update2DImage(Handle<HwTexture> th,
         uint32_t level, uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
         PixelBufferDescriptor&& data) {
     scheduleDestroy(std::move(data));
+}
+
+void NoopDriver::update2DImageWithBuffer(Handle<HwTexture> th,
+        uint32_t level, uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        Handle<HwBufferObject> boh, PixelBufferDescriptor&& data) {
 }
 
 void NoopDriver::setMinMaxLevels(Handle<HwTexture> th, uint32_t minLevel, uint32_t maxLevel) {
@@ -305,6 +318,12 @@ void NoopDriver::readPixels(Handle<HwRenderTarget> src,
         uint32_t x, uint32_t y, uint32_t width, uint32_t height,
         PixelBufferDescriptor&& p) {
     scheduleDestroy(std::move(p));
+}
+
+void NoopDriver::readPixelsToBuffer(Handle<HwRenderTarget> src,
+        uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+        backend::BufferObjectHandle boh,
+        PixelBufferDescriptor&& p) {
 }
 
 void NoopDriver::blit(TargetBufferFlags buffers,

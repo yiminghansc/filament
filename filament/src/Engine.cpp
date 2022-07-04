@@ -239,6 +239,10 @@ void Engine::execute() {
     upcast(this)->execute();
 }
 
+void Engine::queueCommand(Command command) {
+    upcast(this)->queueCommand(command);
+}
+
 utils::JobSystem& Engine::getJobSystem() noexcept {
     return upcast(this)->getJobSystem();
 }

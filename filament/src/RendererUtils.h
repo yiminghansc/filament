@@ -84,6 +84,12 @@ public:
             backend::Handle<backend::HwRenderTarget> renderTargetHandle,
             uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             backend::PixelBufferDescriptor&& buffer);
+
+    static void readPixelsToBuffer(backend::DriverApi& driver,
+            backend::Handle<backend::HwRenderTarget> renderTargetHandle,
+            uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            backend::Handle<backend::HwBufferObject> bufferObjectHandle,
+            backend::PixelBufferDescriptor&& buffer);
 };
 
 } // namespace filament

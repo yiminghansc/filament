@@ -52,6 +52,8 @@ class Driver;
 class FEngine;
 class FRenderTarget;
 class FView;
+class FBufferObject;
+class ShadowMap;
 
 /*
  * A concrete implementation of the Renderer Interface.
@@ -91,10 +93,17 @@ public:
     void readPixels(uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             backend::PixelBufferDescriptor&& buffer);
 
+    void readPixelsToBuffer(uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            FBufferObject* bufferObject, backend::PixelBufferDescriptor&& buffer);
+
     // read pixel from a rendertarget. must be called between beginFrame/enfFrame.
     void readPixels(FRenderTarget* renderTarget,
             uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             backend::PixelBufferDescriptor&& buffer);
+
+    void readPixelsToBuffer(FRenderTarget* renderTarget, 
+            uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            FBufferObject* bufferObject, backend::PixelBufferDescriptor&& buffer);
 
     // blits the current swapchain to another one
     void copyFrame(FSwapChain* dstSwapChain, Viewport const& dstViewport,

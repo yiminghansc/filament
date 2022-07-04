@@ -29,6 +29,7 @@ namespace filament {
 
 class FEngine;
 class FStream;
+class FBufferObject;
 
 class FTexture : public Texture {
 public:
@@ -53,6 +54,10 @@ public:
     void setImage(FEngine& engine, size_t level,
             uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             PixelBufferDescriptor&& buffer) const;
+
+    void setImage(FEngine& engine, size_t level,
+            uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            FBufferObject* bufferObject, PixelBufferDescriptor&& buffer) const;
 
     void setImage(FEngine& engine, size_t level,
             uint32_t xoffset, uint32_t yoffset, uint32_t zoffset,

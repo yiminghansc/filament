@@ -18,6 +18,7 @@
 
 #include "details/Engine.h"
 #include "details/Stream.h"
+#include "details/BufferObject.h"
 
 #include "private/backend/BackendUtils.h"
 
@@ -248,6 +249,64 @@ void FTexture::setImage(FEngine& engine,
 
     engine.getDriverApi().update2DImage(mHandle,
             uint8_t(level), xoffset, yoffset, width, height, std::move(buffer));
+}
+
+void FTexture::setImage(FEngine& engine,
+        size_t level, uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        FBufferObject* bufferObject, Texture::PixelBufferDescriptor&& buffer) const {
+
+    auto validateTarget = [](SamplerType sampler) -> bool {
+        switch (sampler) {
+            case SamplerType::SAMPLER_2D:
+                return true;
+            case SamplerType::SAMPLER_EXTERNAL:
+            case SamplerType::SAMPLER_CUBEMAP:
+            case SamplerType::SAMPLER_3D:
+            case SamplerType::SAMPLER_2D_ARRAY:
+                return false;
+        }
+    };
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(buffer.type == PixelDataType::COMPRESSED ||
+                         validatePixelFormatAndType(mFormat, buffer.format, buffer.type),
+            "The combination of internal format=%u and {format=%u, type=%u} is not supported.",
+            unsigned(mFormat), unsigned(buffer.format), unsigned(buffer.type))) {
+        return;
+    }
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(!mStream, "setImage() called on a Stream texture.")) {
+        return;
+    }
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(level < mLevelCount,
+            "level=%u is >= to levelCount=%u.", unsigned(level), unsigned(mLevelCount))) {
+        return;
+    }
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(validateTarget(mTarget),
+            "Texture Sampler type (%u) not supported for this operation.", unsigned(mTarget))) {
+        return;
+    }
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(mSampleCount <= 1,
+            "Operation not supported with multisample (%u) texture.", unsigned(mSampleCount))) {
+        return;
+    }
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(xoffset + width <= valueForLevel(level, mWidth),
+            "xoffset (%u) + width (%u) > texture width (%u) at level (%u)",
+            unsigned(xoffset), unsigned(width), unsigned(valueForLevel(level, mWidth)), unsigned(level))) {
+        return;
+    }
+
+    if (!ASSERT_POSTCONDITION_NON_FATAL(yoffset + height <= valueForLevel(level, mHeight),
+            "xoffset (%u) + width (%u) > texture width (%u) at level (%u)",
+            unsigned(yoffset), unsigned(height), unsigned(valueForLevel(level, mHeight)), unsigned(level))) {
+        return;
+    }
+
+    engine.getDriverApi().update2DImageWithBuffer(mHandle,
+            uint8_t(level), xoffset, yoffset, width, height, bufferObject->getHwHandle(), std::move(buffer));
 }
 
 void FTexture::setImage(FEngine& engine, size_t level,

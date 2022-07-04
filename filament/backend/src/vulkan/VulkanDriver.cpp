@@ -889,6 +889,14 @@ uint8_t VulkanDriver::getMaxDrawBuffers() {
     return MRT::MIN_SUPPORTED_RENDER_TARGET_COUNT; // TODO: query real value
 }
 
+void VulkanDriver::getBufferObjectHwResource(Handle<HwBufferObject> boh,
+        backend::GPUBufferCallback callback, void* user) {
+}
+
+void VulkanDriver::getBufferData(Handle<HwBufferObject> boh,
+        BufferDescriptor&& bd, uint32_t byteOffset) {
+}
+
 void VulkanDriver::setVertexBufferObject(Handle<HwVertexBuffer> vbh, uint32_t index,
         Handle<HwBufferObject> boh) {
     auto& vb = *handle_cast<VulkanVertexBuffer*>(vbh);
@@ -937,6 +945,11 @@ void VulkanDriver::update2DImage(Handle<HwTexture> th,
     handle_cast<VulkanTexture*>(th)->updateImage(data, width, height, 1,
             xoffset, yoffset, 0, level);
     scheduleDestroy(std::move(data));
+}
+
+void VulkanDriver::update2DImageWithBuffer(Handle<HwTexture> th,
+        uint32_t level, uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        Handle<HwBufferObject> boh, PixelBufferDescriptor&& data) {
 }
 
 void VulkanDriver::setMinMaxLevels(Handle<HwTexture> th, uint32_t minLevel, uint32_t maxLevel) {
@@ -1660,6 +1673,12 @@ void VulkanDriver::readPixels(Handle<HwRenderTarget> src, uint32_t x, uint32_t y
     });
 
     scheduleDestroy(std::move(pbd));
+}
+
+void VulkanDriver::readPixelsToBuffer(Handle<HwRenderTarget> src,
+        uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+        backend::BufferObjectHandle boh,
+        PixelBufferDescriptor&& p) {
 }
 
 void VulkanDriver::blit(TargetBufferFlags buffers, Handle<HwRenderTarget> dst, Viewport dstRect,

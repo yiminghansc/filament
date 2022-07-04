@@ -33,6 +33,7 @@ class FTexture;
 
 class Engine;
 class Stream;
+class BufferObject;
 
 /**
  * Texture
@@ -314,6 +315,9 @@ public:
      */
     void setImage(Engine& engine, size_t level, PixelBufferDescriptor&& buffer) const;
 
+    void setImage(Engine& engine, size_t level, 
+            BufferObject* bufferObject, PixelBufferDescriptor&& buffer) const;
+
     /**
      * Updates a sub-image of a 2D texture for a level.
      *
@@ -339,6 +343,10 @@ public:
     void setImage(Engine& engine, size_t level,
             uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             PixelBufferDescriptor&& buffer) const;
+
+    void setImage(Engine& engine, size_t level,
+            uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            BufferObject* bufferObject, PixelBufferDescriptor&& buffer) const;
 
     /**
      * Updates a sub-image of a 3D texture or 2D texture array for a level.

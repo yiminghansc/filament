@@ -37,6 +37,7 @@ class RenderTarget;
 class SwapChain;
 class View;
 class Viewport;
+class BufferObject;
 
 namespace backend {
 class PixelBufferDescriptor;
@@ -386,6 +387,9 @@ public:
     void readPixels(uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             backend::PixelBufferDescriptor&& buffer);
 
+    void readPixelsToBuffer(uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            BufferObject* bufferObject, backend::PixelBufferDescriptor&& buffer);
+
     /**
      * Finishes the current frame and schedules it for display.
      *
@@ -466,6 +470,10 @@ public:
     void readPixels(RenderTarget* renderTarget,
             uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             backend::PixelBufferDescriptor&& buffer);
+
+    void readPixelsToBuffer(RenderTarget* renderTarget,
+            uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            BufferObject* bufferObject, backend::PixelBufferDescriptor&& buffer);
 
     /**
      * Render a standalone View into its associated RenderTarget

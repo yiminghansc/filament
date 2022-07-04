@@ -428,6 +428,7 @@ void OpenGLDriver::createBufferObjectR(Handle<HwBufferObject> boh,
     glGenBuffers(1, &bo->gl.id);
     gl.bindBuffer(bo->gl.binding, bo->gl.id);
     glBufferData(bo->gl.binding, byteCount, nullptr, getBufferUsage(usage));
+    gl.bindBuffer(bo->gl.binding, 0);
     CHECK_GL_ERROR(utils::slog.e)
 }
 
@@ -1621,6 +1622,29 @@ void OpenGLDriver::makeCurrent(Handle<HwSwapChain> schDraw, Handle<HwSwapChain> 
 // Updating driver objects
 // ------------------------------------------------------------------------------------------------
 
+void OpenGLDriver::getBufferObjectHwResource(Handle<HwBufferObject> boh,
+        GPUBufferCallback callback, void* user) {
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+    void* hwResource = &(bo->gl.id);
+    callback(hwResource, bo->byteCount, user);
+}
+
+void OpenGLDriver::getBufferData(Handle<HwBufferObject> boh,
+        BufferDescriptor&& bd, uint32_t byteOffset) {
+    DEBUG_MARKER()
+    auto& gl = mContext;
+
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+    GLuint pbo = bo->gl.id;
+    gl.bindBuffer(bo->gl.binding, pbo);
+    void* vaddr = glMapBufferRange(bo->gl.binding, byteOffset, bd.size, GL_MAP_READ_BIT);
+    memcpy(bd.buffer, vaddr, bd.size);
+    glUnmapBuffer(bo->gl.binding);
+    gl.bindBuffer(bo->gl.binding, 0);
+
+    CHECK_GL_ERROR(utils::slog.e)
+}
+
 void OpenGLDriver::setVertexBufferObject(Handle<HwVertexBuffer> vbh,
         uint32_t index, Handle<HwBufferObject> boh) {
    DEBUG_MARKER()
@@ -1762,6 +1786,24 @@ void OpenGLDriver::update2DImage(Handle<HwTexture> th,
         setTextureData(t,
                 level, xoffset, yoffset, 0, width, height, 1, std::move(data), nullptr);
     }
+}
+
+void OpenGLDriver::update2DImageWithBuffer(Handle<HwTexture> th,
+        uint32_t level, uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        Handle<HwBufferObject> boh, PixelBufferDescriptor&& data) {
+    DEBUG_MARKER()
+    auto& gl = mContext;
+
+    GLTexture* t = handle_cast<GLTexture *>(th);
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+
+    GLuint pbo = bo->gl.id;
+    gl.bindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+
+    setTextureData(t, level, xoffset, yoffset, 0, width, height, 1, std::move(data), nullptr);
+
+    gl.bindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    CHECK_GL_ERROR(utils::slog.e)
 }
 
 void OpenGLDriver::setMinMaxLevels(Handle<HwTexture> th, uint32_t minLevel, uint32_t maxLevel) {
@@ -2566,6 +2608,33 @@ void OpenGLDriver::stopCapture(int) {
 // ------------------------------------------------------------------------------------------------
 // Read-back ops
 // ------------------------------------------------------------------------------------------------
+
+void OpenGLDriver::readPixelsToBuffer(Handle<HwRenderTarget> src,
+        uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+        backend::BufferObjectHandle boh,
+        PixelBufferDescriptor&& p) {
+    DEBUG_MARKER()
+    auto& gl = mContext;
+
+    GLenum glFormat = getFormat(p.format);
+    GLenum glType = getType(p.type);
+
+    GLRenderTarget const* s = handle_cast<GLRenderTarget const*>(src);
+    gl.bindFramebuffer(GL_READ_FRAMEBUFFER, s->gl.fbo);
+
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+    GLuint pbo = bo->gl.id;
+    gl.bindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glReadPixels(GLint(x), GLint(y), GLint(width), GLint(height), glFormat, glType, nullptr);
+    gl.bindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    CHECK_GL_ERROR(utils::slog.e)
+
+    auto* pUserBuffer = new PixelBufferDescriptor(std::move(p));
+    whenGpuCommandsComplete([pbo, pUserBuffer]() mutable {
+        pUserBuffer->buffer = &pbo;
+        delete pUserBuffer;
+    });
+}
 
 void OpenGLDriver::readPixels(Handle<HwRenderTarget> src,
         uint32_t x, uint32_t y, uint32_t width, uint32_t height,

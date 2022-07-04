@@ -1011,6 +1011,10 @@ bool FEngine::execute() {
     return true;
 }
 
+void FEngine::queueCommand(Command command) {
+    getDriverApi().queueCommand(command);
+}
+
 void FEngine::destroy(FEngine* engine) {
     if (engine) {
         engine->shutdown();

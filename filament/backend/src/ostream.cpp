@@ -367,6 +367,8 @@ io::ostream& operator<<(io::ostream& out, BufferObjectBinding binding) {
     switch (binding) {
         CASE(BufferObjectBinding, VERTEX)
         CASE(BufferObjectBinding, UNIFORM)
+        CASE(BufferObjectBinding, PIXEL_DOWNLOAD)
+        CASE(BufferObjectBinding, PIXEL_UPLOAD)
     }
     return out;
 }
