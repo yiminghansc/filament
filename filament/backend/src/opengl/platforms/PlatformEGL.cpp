@@ -91,7 +91,9 @@ Driver* PlatformEGL::createDriver(void* sharedContext) noexcept {
         return nullptr;
     }
 
+#if defined(__ANDROID__) || defined(FILAMENT_USE_EXTERNAL_GLES3) || defined(__EMSCRIPTEN__)
     importGLESExtensionsEntryPoints();
+#endif
 
     auto extensions = GLUtils::split(eglQueryString(mEGLDisplay, EGL_EXTENSIONS));
 

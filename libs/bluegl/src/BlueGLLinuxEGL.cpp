@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <GL/gl.h>
 #include <dlfcn.h>
 #include <string.h>
 

@@ -29,7 +29,7 @@
 
 using namespace utils;
 
-namespace filament {
+namespace filament::backend {
 using namespace backend;
 
 namespace glext {
@@ -104,7 +104,7 @@ backend::Driver* PlatformEGLHeadless::createDriver(void* sharedContext) noexcept
            EGL_GREEN_SIZE, 8,
            EGL_BLUE_SIZE, 8,
            EGL_ALPHA_SIZE,  0,
-           EGL_DEPTH_SIZE, 32,
+           EGL_DEPTH_SIZE, 24,
            EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
            EGL_NONE
     };
