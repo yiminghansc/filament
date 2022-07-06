@@ -16,10 +16,20 @@ set(SRCS
 # ==================================================================================================
 add_executable(${TARGET} ${SRCS})
 
+set_target_properties(${TARGET} PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+
 target_link_libraries(${TARGET} PUBLIC math)
 target_link_libraries(${TARGET} PUBLIC utils)
-target_link_libraries(${TARGET} PUBLIC assimp)
-target_link_libraries(${TARGET} PRIVATE getopt filameshio meshoptimizer)
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} PUBLIC Assimp::assimp)
+  target_link_libraries(${TARGET} PRIVATE filameshio meshoptimizer::meshoptimizer)
+  if (MSVC)
+    target_link_libraries(${TARGET} PRIVATE getopt::getopt)
+  endif()
+else()
+  target_link_libraries(${TARGET} PUBLIC assimp)
+  target_link_libraries(${TARGET} PRIVATE getopt filameshio meshoptimizer)
+endif()
 
 # ==================================================================================================
 # Compile options and optimizations
@@ -45,5 +55,5 @@ target_include_directories(${TARGET} PRIVATE ${GENERATION_ROOT})
 # ==================================================================================================
 # Installation
 # ==================================================================================================
-install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} RUNTIME DESTINATION bin)
 install(FILES "README.md" DESTINATION docs/ RENAME "${TARGET}.md")

@@ -24,7 +24,11 @@
 #include <filament/Engine.h>
 #include <filament/Texture.h>
 
+#ifdef FILAMENT_USE_HUNTER
+#include <stb/stb_image.h>
+#else
 #include <stb_image.h>
+#endif
 
 using namespace filament;
 using namespace utils;

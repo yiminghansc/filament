@@ -26,9 +26,13 @@
 
 #include <sstream>
 
-#include <GlslangToSpv.h>
-
-#include <smolv.h>
+#ifdef FILAMENT_USE_HUNTER
+    #include <glslang/SPIRV/GlslangToSpv.h>
+    #include <smol-v/smolv.h>
+#else 
+    #include <GlslangToSpv.h>
+    #include <smolv.h>
+#endif
 
 #include "sca/builtinResource.h"
 #include "sca/GLSLTools.h"

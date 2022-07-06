@@ -221,15 +221,26 @@ include_directories(${GENERATION_ROOT})
 add_library(${TARGET} STATIC ${PRIVATE_HDRS} ${PUBLIC_HDRS} ${SRCS})
 
 # specify where the public headers of this library are
-target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+if(HUNTER_ENABLED)
+  target_include_directories(${TARGET} PUBLIC  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+else()
+  target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+endif()
 
 # ==================================================================================================
 # Expose a header-only target to minimize dependencies.
 # ==================================================================================================
 
 add_library(${TARGET}_headers INTERFACE)
-target_include_directories(${TARGET}_headers INTERFACE ${PUBLIC_HDR_DIR})
-
+if(HUNTER_ENABLED)
+  target_include_directories(${TARGET}_headers INTERFACE  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:include>)
+else()
+  target_include_directories(${TARGET}_headers INTERFACE ${PUBLIC_HDR_DIR})
+endif()
 # ==================================================================================================
 # Build SPIRV snippets used by the Vulkan backend.
 # ==================================================================================================
@@ -297,7 +308,11 @@ if(FILAMENT_SUPPORTS_OPENGL AND NOT IOS AND NOT ANDROID AND NOT WEBGL)
 endif()
 
 if (FILAMENT_SUPPORTS_VULKAN)
-    target_link_libraries(${TARGET} PUBLIC bluevk vkmemalloc vkshaders smol-v)
+    if(HUNTER_ENABLED)
+        target_link_libraries(${TARGET} PUBLIC bluevk VulkanMemoryAllocator::VulkanMemoryAllocator vkshaders smol-v::smol-v)
+    else()
+        target_link_libraries(${TARGET} PUBLIC bluevk vkmemalloc vkshaders smol-v)
+    endif()
 endif()
 
 if (FILAMENT_SUPPORTS_METAL)
@@ -371,9 +386,18 @@ target_link_libraries(${TARGET} PRIVATE
 # Installation
 # ==================================================================================================
 set(INSTALL_TYPE ARCHIVE)
-install(TARGETS ${TARGET} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
-install(TARGETS vkshaders ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+if(HUNTER_ENABLED)
+  install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+  install(TARGETS vkshaders EXPORT ${TARGETS_EXPORT_NAME} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+else()
+  install(TARGETS ${TARGET} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+  install(TARGETS vkshaders ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+endif()
 install(DIRECTORY ${PUBLIC_HDR_DIR}/backend DESTINATION include)
+
+if (HUNTER_ENABLED)
+  install(TARGETS ${TARGET}_headers EXPORT ${TARGETS_EXPORT_NAME})
+endif()
 
 # ==================================================================================================
 # Test
@@ -396,15 +420,33 @@ if (APPLE)
         test/test_RenderExternalImage.cpp
         test/test_StencilBuffer.cpp
         )
+  if(HUNTER_ENABLED)
+        target_link_libraries(backend_test PRIVATE
+            backend
+            filabridge
+            GTest::gtest
+            glslang::SPIRV
+            spirv-cross-glsl
+            glslang::OGLCompiler
+            glslang::OSDependent
+            SPIRV-Tools::SPIRV-Tools
+            SPIRV-Tools::SPIRV-Tools-opt
+            glslang::glslang
+            spirv-cross-core
+            spirv-cross-msl)
 
-    target_link_libraries(backend_test PRIVATE
+            if (NOT IOS)
+                target_link_libraries(backend_test PRIVATE image imageio)
+            endif()
+    else()
+      target_link_libraries(backend_test PRIVATE
         backend
         getopt
         gtest
         SPIRV
         spirv-cross-glsl)
 
-    set(BACKEND_TEST_DEPS
+      set(BACKEND_TEST_DEPS
             OGLCompiler
             OSDependent
             SPIRV
@@ -419,15 +461,16 @@ if (APPLE)
             spirv-cross-msl
             )
 
-    if (NOT IOS)
+      if (NOT IOS)
         target_link_libraries(backend_test PRIVATE image imageio)
         list(APPEND BACKEND_TEST_DEPS image imageio)
+      endif()
+
+      set(BACKEND_TEST_COMBINED_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/libbackendtest_combined.a")
+      combine_static_libs(backend_test "${BACKEND_TEST_COMBINED_OUTPUT}" "${BACKEND_TEST_DEPS}")
+
+      set(BACKEND_TEST_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}backend_test${CMAKE_STATIC_LIBRARY_SUFFIX})
     endif()
-
-    set(BACKEND_TEST_COMBINED_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/libbackendtest_combined.a")
-    combine_static_libs(backend_test "${BACKEND_TEST_COMBINED_OUTPUT}" "${BACKEND_TEST_DEPS}")
-
-    set(BACKEND_TEST_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}backend_test${CMAKE_STATIC_LIBRARY_SUFFIX})
 
     if (INSTALL_BACKEND_TEST)
         install(FILES "${BACKEND_TEST_COMBINED_OUTPUT}" DESTINATION lib/${DIST_DIR} RENAME ${BACKEND_TEST_LIB_NAME})

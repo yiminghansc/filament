@@ -36,7 +36,11 @@
 
 #include <camutils/Manipulator.h>
 
+#if !defined (FILAMENT_USE_HUNTER)
 #include <getopt/getopt.h>
+#else
+#include <getopt.h>
+#endif
 
 #include <math/half.h>
 #include <math/vec3.h>

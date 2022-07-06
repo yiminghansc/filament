@@ -13,7 +13,14 @@ set(SRCS
 # Target definitions
 # ==================================================================================================
 add_executable(${TARGET} ${SRCS})
-target_link_libraries(${TARGET} PRIVATE utils getopt uberzlib)
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} PRIVATE utils uberzlib)
+  if (MSVC)
+    target_link_libraries(${TARGET} PRIVATE getopt::getopt)
+  endif()
+else()
+  target_link_libraries(${TARGET} PRIVATE utils getopt uberzlib)
+endif()
 
 # =================================================================================================
 # Licenses
@@ -26,4 +33,4 @@ target_include_directories(${TARGET} PRIVATE ${GENERATION_ROOT})
 # ==================================================================================================
 # Installation
 # ==================================================================================================
-install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} RUNTIME DESTINATION bin)

@@ -144,21 +144,41 @@ set(DUMMY_SRC "${RESOURCE_DIR}/dummy.c")
 add_custom_command(OUTPUT ${DUMMY_SRC} COMMAND echo "//" > ${DUMMY_SRC})
 
 add_library(uberarchive ${DUMMY_SRC} ${RESGEN_SOURCE})
-target_include_directories(uberarchive PUBLIC ${RESOURCE_DIR})
+if(HUNTER_ENABLED)
+  target_include_directories(uberarchive PUBLIC  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+else()
+  target_include_directories(uberarchive PUBLIC ${PUBLIC_HDR_DIR})
+endif()
 
 # ==================================================================================================
 # Build the "core" library (no filamat)
 # ==================================================================================================
 
 include_directories(${PUBLIC_HDR_DIR} ${RESOURCE_DIR})
-link_libraries(math utils filament cgltf stb ktxreader geometry tsl trie uberzlib)
+if(HUNTER_ENABLED)
+  link_libraries(math utils filament cgltf::cgltf stb::stb ktxreader geometry tsl::hat_trie tsl::robin_map uberzlib)
+else()
+  link_libraries(math utils filament cgltf stb ktxreader geometry tsl trie uberzlib)
+endif()
 
 add_library(gltfio_core STATIC ${PUBLIC_HDRS} ${SRCS})
 
-target_include_directories(gltfio_core PUBLIC ${PUBLIC_HDR_DIR})
+if(HUNTER_ENABLED)
+  target_include_directories(gltfio_core PUBLIC  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+else()
+  target_include_directories(gltfio_core PUBLIC ${PUBLIC_HDR_DIR})
+endif()
 
 target_compile_definitions(gltfio_core PUBLIC -DGLTFIO_DRACO_SUPPORTED=1)
-target_link_libraries(gltfio_core PUBLIC dracodec)
+if(HUNTER_ENABLED)
+  target_link_libraries(gltfio_core PUBLIC draco::draco)
+else()
+  target_link_libraries(gltfio_core PUBLIC dracodec)
+endif()
 
 if (NOT WEBGL AND NOT ANDROID AND NOT IOS)
 
@@ -167,7 +187,14 @@ if (NOT WEBGL AND NOT ANDROID AND NOT IOS)
     # ==================================================================================================
     add_library(${TARGET} STATIC ${PUBLIC_HDRS} src/JitShaderProvider.cpp)
     target_link_libraries(${TARGET} PUBLIC filamat gltfio_core)
-    target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+    
+    if(HUNTER_ENABLED)
+      target_include_directories(${TARGET} PUBLIC  
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+        $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+    else()
+      target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+    endif()
 
     # ==================================================================================================
     # Compiler flags
@@ -179,14 +206,22 @@ if (NOT WEBGL AND NOT ANDROID AND NOT IOS)
         target_compile_options(${TARGET} PRIVATE -Wno-deprecated-register)
     endif()
 
-    install(TARGETS ${TARGET} ARCHIVE DESTINATION lib/${DIST_DIR})
+    if(HUNTER_ENABLED)
+      install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} ARCHIVE DESTINATION lib/${DIST_DIR})
+    else()
+      install(TARGETS ${TARGET} ARCHIVE DESTINATION lib/${DIST_DIR})
+    endif()
 
 endif()
 
 # ==================================================================================================
 # Installation
 # ==================================================================================================
+if(HUNTER_ENABLED)
+  install(TARGETS gltfio_core uberarchive EXPORT ${TARGETS_EXPORT_NAME} ARCHIVE DESTINATION lib/${DIST_DIR})
+else()
+  install(TARGETS gltfio_core uberarchive ARCHIVE DESTINATION lib/${DIST_DIR})
+endif()
 
-install(TARGETS gltfio_core uberarchive ARCHIVE DESTINATION lib/${DIST_DIR})
 install(DIRECTORY ${PUBLIC_HDR_DIR}/gltfio DESTINATION include)
 install(FILES ${RESOURCE_DIR}/materials/uberarchive.h DESTINATION include/gltfio/materials)

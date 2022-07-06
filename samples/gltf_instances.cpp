@@ -33,7 +33,12 @@
 
 #include <camutils/Manipulator.h>
 
+#if !defined (FILAMENT_USE_HUNTER)
 #include <getopt/getopt.h>
+#else
+#include <getopt.h>
+#endif
+
 
 #include <utils/NameComponentManager.h>
 

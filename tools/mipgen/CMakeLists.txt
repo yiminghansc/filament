@@ -12,7 +12,17 @@ set(SRCS src/main.cpp)
 # Target definitions
 # ==================================================================================================
 add_executable(${TARGET} ${SRCS})
-target_link_libraries(${TARGET} PRIVATE math utils z image imageio getopt)
+
+set_target_properties(${TARGET} PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} PRIVATE math utils ZLIB::zlib image imageio)
+  if (MSVC)
+    target_link_libraries(${TARGET} PRIVATE getopt::getopt)
+  endif()
+else()
+  target_link_libraries(${TARGET} PRIVATE math utils z image imageio getopt)
+endif()
 
 # =================================================================================================
 # Licenses
@@ -25,5 +35,5 @@ target_include_directories(${TARGET} PRIVATE ${GENERATION_ROOT})
 # ==================================================================================================
 # Installation
 # ==================================================================================================
-install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} RUNTIME DESTINATION bin)
 install(FILES "README.md" DESTINATION docs/ RENAME "${TARGET}.md")

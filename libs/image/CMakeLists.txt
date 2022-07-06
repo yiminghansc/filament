@@ -31,7 +31,13 @@ add_library(${TARGET} STATIC ${PUBLIC_HDRS} ${SRCS})
 
 target_link_libraries(${TARGET} PUBLIC math utils)
 
-target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+if(HUNTER_ENABLED)
+  target_include_directories(${TARGET} PUBLIC  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+else()
+  target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+endif()
 
 # ==================================================================================================
 # Compiler flags
@@ -46,7 +52,11 @@ endif()
 # ==================================================================================================
 # Installation
 # ==================================================================================================
-install(TARGETS ${TARGET} ARCHIVE DESTINATION lib/${DIST_DIR})
+if(HUNTER_ENABLED)
+  install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} ARCHIVE DESTINATION lib/${DIST_DIR})
+else()
+  install(TARGETS ${TARGET} ARCHIVE DESTINATION lib/${DIST_DIR})
+endif()
 install(DIRECTORY ${PUBLIC_HDR_DIR}/image DESTINATION include)
 
 # ==================================================================================================
@@ -54,5 +64,9 @@ install(DIRECTORY ${PUBLIC_HDR_DIR}/image DESTINATION include)
 # ==================================================================================================
 if (NOT ANDROID AND NOT WEBGL AND NOT IOS AND NOT FILAMENT_SKIP_SDL2)
     add_executable(test_${TARGET} tests/test_image.cpp)
-    target_link_libraries(test_${TARGET} PRIVATE image imageio gtest)
+    if(HUNTER_ENABLED)
+      target_link_libraries(test_${TARGET} PRIVATE image imageio GTest::gtest GTest::gtest_main Threads::Threads)
+    else()
+      target_link_libraries(test_${TARGET} PRIVATE image imageio gtest)
+    endif()
 endif()
