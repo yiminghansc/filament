@@ -102,6 +102,7 @@ struct FAssetLoader : public AssetLoader {
 
     FFilamentAsset* createAssetFromJson(const uint8_t* bytes, uint32_t nbytes);
     FFilamentAsset* createAssetFromBinary(const uint8_t* bytes, uint32_t nbytes);
+    FFilamentAsset* createAssetFromCgltfAsset(const cgltf_data* sourceAsset);
     FFilamentAsset* createInstancedAsset(const uint8_t* bytes, uint32_t numBytes,
         FilamentInstance** instances, size_t numInstances);
     FilamentInstance* createInstance(FFilamentAsset* primary);
@@ -207,6 +208,15 @@ FFilamentAsset* FAssetLoader::createAssetFromBinary(const uint8_t* bytes, uint32
     if (mResult) {
         glbdata.swap(mResult->mSourceAsset->glbData);
     }
+    return mResult;
+}
+
+FFilamentAsset* FAssetLoader::createAssetFromCgltfAsset(const cgltf_data* sourceAsset) {
+    if (!sourceAsset) {
+        slog.e << "Null cgltf asset." << io::endl;
+        return nullptr;
+    }
+    createAsset(sourceAsset, 0);
     return mResult;
 }
 
@@ -1423,6 +1433,10 @@ FilamentAsset* AssetLoader::createAssetFromJson(uint8_t const* bytes, uint32_t n
 
 FilamentAsset* AssetLoader::createAssetFromBinary(uint8_t const* bytes, uint32_t nbytes) {
     return upcast(this)->createAssetFromBinary(bytes, nbytes);
+}
+
+FilamentAsset* AssetLoader::createAssetFromCgltfAsset(const cgltf_data* sourceAsset) {
+    return upcast(this)->createAssetFromCgltfAsset(sourceAsset);
 }
 
 FilamentAsset* AssetLoader::createInstancedAsset(const uint8_t* bytes, uint32_t numBytes,

@@ -491,6 +491,7 @@ static Material* createMaterial(Engine* engine, const MaterialKey& config, const
                 break;
             case AlphaMode::BLEND:
                 builder.blending(MaterialBuilder::BlendingMode::FADE);
+                builder.transparentShadow(true);
                 break;
             default:
                 // Ignore
