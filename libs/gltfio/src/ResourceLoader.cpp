@@ -475,12 +475,10 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
     // Upload VertexBuffer and IndexBuffer data to the GPU.
     for (auto slot : asset->mBufferSlots) {
         const cgltf_accessor* accessor = slot.accessor;
-        if (!accessor->buffer_view) {
+        if (!accessor->buffer_view && !accessor->is_sparse) {
             continue;
         }
-        auto bufferData = (const uint8_t*) accessor->buffer_view->buffer->data;
-        const uint8_t* data = computeBindingOffset(accessor) + bufferData;
-        const uint32_t size = computeBindingSize(accessor);
+        
         if (slot.vertexBuffer) {
             if (requiresConversion(accessor)) {
                 const size_t floatsCount = accessor->count * cgltf_num_components(accessor->type);
@@ -493,6 +491,9 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
                 slot.vertexBuffer->setBufferObjectAt(engine, slot.bufferIndex, bo);
                 continue;
             }
+            auto bufferData = (const uint8_t*) accessor->buffer_view->buffer->data;
+            const uint8_t* data = computeBindingOffset(accessor) + bufferData;
+            const uint32_t size = computeBindingSize(accessor);
             BufferObject* bo = BufferObject::Builder().size(size).build(engine);
             asset->mBufferObjects.push_back(bo);
             bo->setBuffer(engine, BufferDescriptor(data, size,
@@ -500,6 +501,9 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
             slot.vertexBuffer->setBufferObjectAt(engine, slot.bufferIndex, bo);
             continue;
         } else if (slot.indexBuffer) {
+            auto bufferData = (const uint8_t*) accessor->buffer_view->buffer->data;
+            const uint8_t* data = computeBindingOffset(accessor) + bufferData;
+            const uint32_t size = computeBindingSize(accessor);
             if (accessor->component_type == cgltf_component_type_r_8u) {
                 const size_t size16 = size * 2;
                 uint16_t* data16 = (uint16_t*) malloc(size16);
@@ -527,19 +531,22 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
                         (const float3*) floatsData, slot.morphTargetBuffer->getVertexCount());
             } else {
                 slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
-                        (const float4*) data, slot.morphTargetBuffer->getVertexCount());
+                        (const float4*) floatsData, slot.morphTargetBuffer->getVertexCount());
             }
             free(floatsData);
-            continue;
         }
-
-        if (accessor->type == cgltf_type_vec3) {
-            slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
-                    (const float3*) data, slot.morphTargetBuffer->getVertexCount());
-        } else {
-            assert_invariant(accessor->type == cgltf_type_vec4);
-            slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
-                    (const float4*) data, slot.morphTargetBuffer->getVertexCount());
+        else {
+            auto bufferData = (const uint8_t*) accessor->buffer_view->buffer->data;
+            const uint8_t* data = computeBindingOffset(accessor) + bufferData;
+            const uint32_t size = computeBindingSize(accessor);
+            if (accessor->type == cgltf_type_vec3) {
+                slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
+                        (const float3*) data, slot.morphTargetBuffer->getVertexCount());
+            } else {
+                assert_invariant(accessor->type == cgltf_type_vec4);
+                slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
+                        (const float4*) data, slot.morphTargetBuffer->getVertexCount());
+            }
         }
     }
 
@@ -553,6 +560,14 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
     // Non-textured renderables are now considered ready, and we can guarantee that no new
     // materials or textures will be added. notify the dependency graph.
     asset->mDependencyGraph.finalize();
+
+    if (!async) {
+        for (const auto& iter : pImpl->mTextureProviders) {
+            while (Texture* texture = iter.second->popTexture()) {
+                asset->mDependencyGraph.markAsReady(texture);
+            }
+        }
+    }
 
     asset->createAnimators();
 
