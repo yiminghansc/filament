@@ -648,6 +648,18 @@ void ResourceLoader::asyncUpdateLoad() {
 std::pair<Texture*, CacheResult> ResourceLoader::Impl::getOrCreateTexture(FFilamentAsset* asset,
         size_t textureIndex, TextureProvider::TextureFlags flags) {
     const cgltf_texture& srcTexture = asset->mSourceAsset->hierarchy->textures[textureIndex];
+
+    // Check if there is a texture provider that can work with cgtlf_texture.
+    if (auto iter = mTextureProviders.find("cgltf_texture"); iter != mTextureProviders.end()) {
+        const cgltf_texture* gltfTexture = &asset->mSourceAsset->hierarchy->textures[textureIndex];
+        TextureProvider* provider = iter->second;
+        Texture* texture = provider->pushTexture(gltfTexture, flags);
+        if (texture) {
+            // Note we didn't pass ownership to asset. Caller is responsible for cleaning up.
+            return {texture, CacheResult::MISS};
+        }
+    }
+
     const cgltf_image* image = srcTexture.basisu_image ?
             srcTexture.basisu_image : srcTexture.image;
     const cgltf_buffer_view* bv = image->buffer_view;
