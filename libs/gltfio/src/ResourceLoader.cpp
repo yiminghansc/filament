@@ -616,15 +616,25 @@ void ResourceLoader::asyncUpdateLoad() {
 
 Texture* ResourceLoader::Impl::getOrCreateTexture(FFilamentAsset* asset, const TextureSlot& tb) {
     const cgltf_texture* srcTexture = tb.texture;
-    const cgltf_image* image = srcTexture->basisu_image ?
-            srcTexture->basisu_image : srcTexture->image;
-    const cgltf_buffer_view* bv = image->buffer_view;
-    const char* uri = image->uri;
-
     TextureProvider::FlagBits flags = {};
     if (tb.srgb) {
         flags |= int(TextureProvider::Flags::sRGB);
     }
+
+    // Check if there is a texture provider that can work with cgtlf_texture.
+    if (auto iter = mTextureProviders.find("cgltf_texture"); iter != mTextureProviders.end()) {
+        TextureProvider* provider = iter->second;
+        Texture* texture = provider->pushTexture(srcTexture, flags);
+        if (texture) {
+            // Note we didn't pass ownership to asset. Caller is responsible for cleaning up.
+            return texture;
+        }
+    }
+
+    const cgltf_image* image = srcTexture->basisu_image ?
+            srcTexture->basisu_image : srcTexture->image;
+    const cgltf_buffer_view* bv = image->buffer_view;
+    const char* uri = image->uri;
 
     std::string mime = image->mime_type ? image->mime_type : "";
     size_t dataUriSize;
