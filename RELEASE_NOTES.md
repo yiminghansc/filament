@@ -11,6 +11,7 @@ A new header is inserted each time a *tag* is created.
 ## v1.25.4
 
 - backend: streamline texture upload APIs [⚠️ **API Change**]
+- engine: new feature level APIs, see `Engine::getSupportedFeatureLevel()`
 
 ## v1.25.3
 
