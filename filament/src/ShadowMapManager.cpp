@@ -291,6 +291,8 @@ FrameGraphId<FrameGraphTexture> ShadowMapManager::render(FrameGraph& fg, FEngine
 
                     view.prepareCamera(cameraInfo);
 
+                    view.prepareShadowMap();
+
                     // We set a viewport with a 1-texel border for when we index outside the
                     // texture.
                     // DON'T CHANGE this unless ShadowMap::getTextureCoordsMapping() is updated too.
