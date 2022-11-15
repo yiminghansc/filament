@@ -503,57 +503,65 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
     // Upload VertexBuffer and IndexBuffer data to the GPU.
     for (auto slot : asset->mBufferSlots) {
         const cgltf_accessor* accessor = slot.accessor;
-        if (!accessor->buffer_view) {
-            continue;
-        }
-        const uint8_t* bufferData = nullptr;
-        const uint8_t* data = nullptr;
-        if (accessor->buffer_view->has_meshopt_compression) {
-            bufferData = (const uint8_t*) accessor->buffer_view->data;
-            data = bufferData + accessor->offset;
-        } else {
-            bufferData = (const uint8_t*) accessor->buffer_view->buffer->data;
-            data = computeBindingOffset(accessor) + bufferData;
-        }
-        assert_invariant(bufferData);
-        const uint32_t size = computeBindingSize(accessor);
-        if (slot.vertexBuffer) {
-            if (requiresConversion(accessor)) {
-                const size_t floatsCount = accessor->count * cgltf_num_components(accessor->type);
-                const size_t floatsByteCount = sizeof(float) * floatsCount;
-                float* floatsData = (float*) malloc(floatsByteCount);
-                cgltf_accessor_unpack_floats(accessor, floatsData, floatsCount);
-                BufferObject* bo = BufferObject::Builder().size(floatsByteCount).build(engine);
+        if (accessor->buffer_view) {
+            const uint8_t* bufferData = nullptr;
+            const uint8_t* data = nullptr;
+            if (accessor->buffer_view->has_meshopt_compression) {
+                bufferData = (const uint8_t*) accessor->buffer_view->data;
+                data = bufferData + accessor->offset;
+            } else {
+                bufferData = (const uint8_t*) accessor->buffer_view->buffer->data;
+                data = computeBindingOffset(accessor) + bufferData;
+            }
+            assert_invariant(bufferData);
+            const uint32_t size = computeBindingSize(accessor);
+            if (slot.vertexBuffer) {
+                if (requiresConversion(accessor)) {
+                    const size_t floatsCount = accessor->count * cgltf_num_components(accessor->type);
+                    const size_t floatsByteCount = sizeof(float) * floatsCount;
+                    float* floatsData = (float*) malloc(floatsByteCount);
+                    cgltf_accessor_unpack_floats(accessor, floatsData, floatsCount);
+                    BufferObject* bo = BufferObject::Builder().size(floatsByteCount).build(engine);
+                    asset->mBufferObjects.push_back(bo);
+                    bo->setBuffer(engine, BufferDescriptor(floatsData, floatsByteCount, FREE_CALLBACK));
+                    slot.vertexBuffer->setBufferObjectAt(engine, slot.bufferIndex, bo);
+                    continue;
+                }
+                BufferObject* bo = BufferObject::Builder().size(size).build(engine);
                 asset->mBufferObjects.push_back(bo);
-                bo->setBuffer(engine, BufferDescriptor(floatsData, floatsByteCount, FREE_CALLBACK));
+                bo->setBuffer(engine, BufferDescriptor(data, size,
+                        uploadCallback, uploadUserdata(asset)));
                 slot.vertexBuffer->setBufferObjectAt(engine, slot.bufferIndex, bo);
                 continue;
-            }
-            BufferObject* bo = BufferObject::Builder().size(size).build(engine);
-            asset->mBufferObjects.push_back(bo);
-            bo->setBuffer(engine, BufferDescriptor(data, size,
-                    uploadCallback, uploadUserdata(asset)));
-            slot.vertexBuffer->setBufferObjectAt(engine, slot.bufferIndex, bo);
-            continue;
-        } else if (slot.indexBuffer) {
-            if (accessor->component_type == cgltf_component_type_r_8u) {
-                const size_t size16 = size * 2;
-                uint16_t* data16 = (uint16_t*) malloc(size16);
-                convertBytesToShorts(data16, data, size);
-                IndexBuffer::BufferDescriptor bd(data16, size16, FREE_CALLBACK);
+            } else if (slot.indexBuffer) {
+                if (accessor->component_type == cgltf_component_type_r_8u) {
+                    const size_t size16 = size * 2;
+                    uint16_t* data16 = (uint16_t*) malloc(size16);
+                    convertBytesToShorts(data16, data, size);
+                    IndexBuffer::BufferDescriptor bd(data16, size16, FREE_CALLBACK);
+                    slot.indexBuffer->setBuffer(engine, std::move(bd));
+                    continue;
+                }
+                IndexBuffer::BufferDescriptor bd(data, size, uploadCallback, uploadUserdata(asset));
                 slot.indexBuffer->setBuffer(engine, std::move(bd));
                 continue;
             }
-            IndexBuffer::BufferDescriptor bd(data, size, uploadCallback, uploadUserdata(asset));
-            slot.indexBuffer->setBuffer(engine, std::move(bd));
-            continue;
+
+            // If the buffer slot does not have an associated VertexBuffer or IndexBuffer, then this
+            // must be a morph target.
+            assert(slot.morphTargetBuffer);
+
+            if (accessor->type == cgltf_type_vec3) {
+                slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
+                        (const float3*) data, slot.morphTargetBuffer->getVertexCount());
+            } else {
+                assert_invariant(accessor->type == cgltf_type_vec4);
+                slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
+                        (const float4*) data, slot.morphTargetBuffer->getVertexCount());
+            }
+
         }
-
-        // If the buffer slot does not have an associated VertexBuffer or IndexBuffer, then this
-        // must be a morph target.
-        assert(slot.morphTargetBuffer);
-
-        if (requiresPacking(accessor)) {
+        else if (slot.morphTargetBuffer && requiresPacking(accessor)) {
             const size_t floatsCount = accessor->count * cgltf_num_components(accessor->type);
             const size_t floatsByteCount = sizeof(float) * floatsCount;
             float* floatsData = (float*) malloc(floatsByteCount);
@@ -563,19 +571,9 @@ bool ResourceLoader::loadResources(FFilamentAsset* asset, bool async) {
                         (const float3*) floatsData, slot.morphTargetBuffer->getVertexCount());
             } else {
                 slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
-                        (const float4*) data, slot.morphTargetBuffer->getVertexCount());
+                        (const float4*) floatsData, slot.morphTargetBuffer->getVertexCount());
             }
             free(floatsData);
-            continue;
-        }
-
-        if (accessor->type == cgltf_type_vec3) {
-            slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
-                    (const float3*) data, slot.morphTargetBuffer->getVertexCount());
-        } else {
-            assert_invariant(accessor->type == cgltf_type_vec4);
-            slot.morphTargetBuffer->setPositionsAt(engine, slot.bufferIndex,
-                    (const float4*) data, slot.morphTargetBuffer->getVertexCount());
         }
     }
 
