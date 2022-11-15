@@ -109,6 +109,9 @@ void morphPosition(inout vec4 p) {
 }
 
 void morphNormal(inout vec3 n) {
+// a hack to disable morphing normals
+// this is to avoid rendering issues when normals are not provided by morph targets
+#if defined(NORMAL_MORPHING)
     vec3 baseNormal = n;
     ivec3 texcoord = ivec3(getVertexIndex() % MAX_MORPH_TARGET_BUFFER_WIDTH, getVertexIndex() / MAX_MORPH_TARGET_BUFFER_WIDTH, 0);
     uint c = getObjectUniforms().morphTargetCount;
@@ -122,6 +125,7 @@ void morphNormal(inout vec3 n) {
             n += w * (normal - baseNormal);
         }
     }
+#endif
 }
 #endif
 
