@@ -26,6 +26,8 @@
 
 #include <utils/compiler.h>
 
+class cgltf_data;
+
 namespace utils {
     class EntityManager;
     class NameComponentManager;
@@ -157,6 +159,15 @@ public:
     FilamentAsset* createAsset(const uint8_t* bytes, uint32_t nbytes);
 
     /**
+     * Takes a pointer to an externally parsed cgltf asset and returns an asset
+     * with one instance, or null on failure.
+     * 
+     * Note since cgltf resource is maintained externally, caller needs to make sure it was kept
+     * alive until all resources are loaded.
+     */
+    FilamentAsset* createAsset(const cgltf_data* sourceAsset);
+
+    /**
      * Consumes the contents of a glTF 2.0 file and produces a primary asset with one or more
      * instances. The primary asset has ownership over the instances.
      *
@@ -181,6 +192,9 @@ public:
      * @return the primary asset that has ownership over all instances
      */
     FilamentAsset* createInstancedAsset(const uint8_t* bytes, uint32_t numBytes,
+            FilamentInstance** instances, size_t numInstances);
+
+    FilamentAsset* createInstancedAsset(const cgltf_data* sourceAsset,
             FilamentInstance** instances, size_t numInstances);
 
     /**
