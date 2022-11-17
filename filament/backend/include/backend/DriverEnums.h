@@ -314,7 +314,9 @@ enum class ElementType : uint8_t {
 enum class BufferObjectBinding : uint8_t {
     VERTEX,
     UNIFORM,
-    SHADER_STORAGE
+    SHADER_STORAGE,
+    PIXEL_DOWNLOAD,
+    PIXEL_UPLOAD
 };
 
 //! Face culling Mode
@@ -1044,6 +1046,8 @@ static_assert(sizeof(StencilState) == 12u,
 using FrameScheduledCallback = void(*)(PresentCallable callable, void* user);
 
 using FrameCompletedCallback = void(*)(void* user);
+
+using GPUBufferCallback = void(*)(void* buffer, size_t size, void* user);
 
 enum class Workaround : uint16_t {
     // The EASU pass must split because shader compiler flattens early-exit branch

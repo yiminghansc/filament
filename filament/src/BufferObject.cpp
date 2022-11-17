@@ -27,6 +27,11 @@ void BufferObject::setBuffer(Engine& engine,
     downcast(this)->setBuffer(downcast(engine), std::move(buffer), byteOffset);
 }
 
+void BufferObject::getBuffer(Engine& engine,
+        BufferObject::BufferDescriptor&& buffer, uint32_t byteOffset) {
+    downcast(this)->getBuffer(downcast(engine), std::move(buffer), byteOffset);
+}
+
 size_t BufferObject::getByteCount() const noexcept {
     return downcast(this)->getByteCount();
 }

@@ -51,6 +51,9 @@ class UTILS_PUBLIC BufferObject : public FilamentAPI {
 public:
     using BufferDescriptor = backend::BufferDescriptor;
     using BindingType = backend::BufferObjectBinding;
+    using BufferUsage = backend::BufferUsage;
+    using CreateCallback = backend::GPUBufferCallback;
+    using DestroyCallback = backend::GPUBufferCallback;
 
     class Builder : public BuilderBase<BuilderDetails> {
         friend struct BuilderDetails;
@@ -75,6 +78,31 @@ public:
          * @return A reference to this Builder for chaining calls.
          */
         Builder& bindingType(BindingType bindingType) noexcept;
+
+        /**
+         * The usage type for this buffer object. (defaults to STATIC)
+         * @param bufferUsage Static, Dynamic or Stream.
+         * @return A reference to this Builder for chaining calls.
+         */
+        Builder& bufferUsage(BufferUsage bufferUsage) noexcept;
+
+        /**
+         * Set a callback to be run on the driver thread when the buffer object got
+         * created.
+         * @param callback user callback.
+         * @param user pointer for passing user data to callback.
+         * @return A reference to this Builder for chaining calls.
+         */
+        Builder& createCallback(CreateCallback callback, void* user) noexcept;
+
+        /**
+         * Set a callback to be run on the driver thread when the buffer object got
+         * created.
+         * @param callback user callback.
+         * @param user pointer for passing user data to callback.
+         * @return A reference to this Builder for chaining calls.
+         */
+        Builder& destroyCallback(DestroyCallback callback, void* user) noexcept;
 
         /**
          * Creates the BufferObject and returns a pointer to it. After creation, the buffer
@@ -104,6 +132,15 @@ public:
      * @param byteOffset Offset in bytes into the BufferObject
      */
     void setBuffer(Engine& engine, BufferDescriptor&& buffer, uint32_t byteOffset = 0);
+
+    /**
+     * Asynchronously copy back a region of this BufferObject from GPU.
+     *
+     * @param engine Reference to the filament::Engine associated with this BufferObject.
+     * @param buffer A BufferDescriptor that will hold the data copied back from GPU.
+     * @param byteOffset Offset in bytes into the BufferObject
+     */
+    void getBuffer(Engine& engine, BufferDescriptor&& buffer, uint32_t byteOffset = 0);
 
     /**
      * Returns the size of this BufferObject in elements.

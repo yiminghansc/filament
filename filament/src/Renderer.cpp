@@ -18,6 +18,7 @@
 
 #include "details/Engine.h"
 #include "details/View.h"
+#include "details/BufferObject.h"
 
 namespace filament {
 
@@ -55,6 +56,19 @@ void Renderer::readPixels(RenderTarget* renderTarget,
         PixelBufferDescriptor&& buffer) {
     downcast(this)->readPixels(downcast(renderTarget),
             xoffset, yoffset, width, height, std::move(buffer));
+}
+
+void Renderer::readPixelsToBuffer(uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        BufferObject* bufferObject, PixelBufferDescriptor&& buffer) {
+    downcast(this)->readPixelsToBuffer(xoffset, yoffset, width, height,
+            downcast(bufferObject), std::move(buffer));
+}
+
+void Renderer::readPixelsToBuffer(RenderTarget* renderTarget,
+        uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        BufferObject* bufferObject, PixelBufferDescriptor&& buffer) {
+    downcast(this)->readPixelsToBuffer(downcast(renderTarget),
+            xoffset, yoffset, width, height, downcast(bufferObject), std::move(buffer));
 }
 
 void Renderer::endFrame() {

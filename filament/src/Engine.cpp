@@ -241,6 +241,10 @@ void Engine::execute() {
     downcast(this)->execute();
 }
 
+void Engine::queueCommand(Command command) {
+    downcast(this)->queueCommand(command);
+}
+
 utils::JobSystem& Engine::getJobSystem() noexcept {
     return downcast(this)->getJobSystem();
 }

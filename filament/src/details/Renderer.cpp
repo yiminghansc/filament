@@ -27,6 +27,7 @@
 #include "details/SwapChain.h"
 #include "details/Texture.h"
 #include "details/View.h"
+#include "details/BufferObject.h"
 
 #include <filament/Renderer.h>
 
@@ -333,6 +334,21 @@ void FRenderer::readPixels(FRenderTarget* renderTarget,
         backend::PixelBufferDescriptor&& buffer) {
     RendererUtils::readPixels(mEngine.getDriverApi(), renderTarget->getHwHandle(),
             xoffset, yoffset, width, height, std::move(buffer));
+}
+
+void FRenderer::readPixelsToBuffer(uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        FBufferObject* bufferObject, PixelBufferDescriptor&& buffer) {
+    RendererUtils::readPixelsToBuffer(mEngine.getDriverApi(), mRenderTargetHandle,
+        xoffset, yoffset, width, height,
+        bufferObject->getHwHandle(), std::move(buffer));
+}
+
+void FRenderer::readPixelsToBuffer(FRenderTarget* renderTarget,
+        uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        FBufferObject* bufferObject, PixelBufferDescriptor&& buffer) {
+    RendererUtils::readPixelsToBuffer(mEngine.getDriverApi(), renderTarget->getHwHandle(),
+        xoffset, yoffset, width, height,
+        bufferObject->getHwHandle(), std::move(buffer));
 }
 
 void FRenderer::copyFrame(FSwapChain* dstSwapChain, filament::Viewport const& dstViewport,

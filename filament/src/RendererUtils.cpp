@@ -339,4 +339,14 @@ void RendererUtils::readPixels(backend::DriverApi& driver, Handle<HwRenderTarget
     driver.readPixels(renderTargetHandle, xoffset, yoffset, width, height, std::move(buffer));
 }
 
+UTILS_NOINLINE
+void RendererUtils::readPixelsToBuffer(backend::DriverApi& driver, 
+        Handle<HwRenderTarget> renderTargetHandle,
+        uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+        Handle<HwBufferObject> bufferObjectHandle,
+        backend::PixelBufferDescriptor&& buffer) {
+    driver.readPixelsToBuffer(renderTargetHandle,
+        xoffset, yoffset, width, height, bufferObjectHandle, std::move(buffer));
+}
+
 } // namespace filament

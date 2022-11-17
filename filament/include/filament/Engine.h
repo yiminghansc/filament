@@ -264,6 +264,8 @@ public:
          */
         uint32_t perFrameCommandsSizeMB = FILAMENT_PER_FRAME_COMMANDS_SIZE_IN_MB;
     };
+    
+    using Command = std::function<void()>;
 
     /**
      * Creates an instance of Engine
@@ -717,6 +719,13 @@ public:
       * This should be called every time the windowing system needs to paint (e.g. at 60 Hz).
       */
     void execute();
+
+    /**
+      * Schedule a command to be run on the driver thread.
+      *
+      * @param command a command to be ran on the driver thread.
+      */
+    void queueCommand(Command command);
 
     /**
       * Retrieves the job system that the Engine has ownership over.

@@ -147,6 +147,8 @@ inline constexpr VkBufferUsageFlagBits getBufferObjectUsage(
             return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
         // when adding more buffer-types here, make sure to update VulkanBuffer::loadFromCpu()
         // if necessary.
+        default:
+            return {};
     }
 }
 

@@ -314,6 +314,16 @@ DECL_DRIVER_API_SYNCHRONOUS_0(backend::FeatureLevel, getFeatureLevel)
  * -----------------------
  */
 
+DECL_DRIVER_API_N(getBufferObjectHwResource,
+        backend::BufferObjectHandle, boh,
+        backend::GPUBufferCallback, callback,
+        void*, user)
+
+DECL_DRIVER_API_N(getBufferData,
+        backend::BufferObjectHandle, boh,
+        backend::BufferDescriptor&&, data,
+        uint32_t, byteOffset)
+
 DECL_DRIVER_API_N(setVertexBufferObject,
         backend::VertexBufferHandle, vbh,
         uint32_t, index,
@@ -355,6 +365,18 @@ DECL_DRIVER_API_N(update3DImage,
         uint32_t, width,
         uint32_t, height,
         uint32_t, depth,
+        backend::PixelBufferDescriptor&&, data)
+
+DECL_DRIVER_API_N(update3DImageWithBuffer,
+        backend::TextureHandle, th,
+        uint32_t, level,
+        uint32_t, xoffset,
+        uint32_t, yoffset,
+        uint32_t, zoffset,
+        uint32_t, width,
+        uint32_t, height,
+        uint32_t, depth,
+        backend::BufferObjectHandle, boh,
         backend::PixelBufferDescriptor&&, data)
 
 DECL_DRIVER_API_N(generateMipmaps,
@@ -450,6 +472,15 @@ DECL_DRIVER_API_N(readPixels,
         uint32_t, y,
         uint32_t, width,
         uint32_t, height,
+        backend::PixelBufferDescriptor&&, data)
+
+DECL_DRIVER_API_N(readPixelsToBuffer,
+        backend::RenderTargetHandle, src,
+        uint32_t, x,
+        uint32_t, y,
+        uint32_t, width,
+        uint32_t, height,
+        backend::BufferObjectHandle, boh,
         backend::PixelBufferDescriptor&&, data)
 
 DECL_DRIVER_API_N(readBufferSubData,

@@ -33,6 +33,7 @@ class FTexture;
 
 class Engine;
 class Stream;
+class BufferObject;
 
 /**
  * Texture
@@ -318,6 +319,11 @@ public:
             uint32_t width, uint32_t height, uint32_t depth,
             PixelBufferDescriptor&& buffer) const;
 
+    void setImage(Engine& engine, size_t level,
+            uint32_t xoffset, uint32_t yoffset, uint32_t zoffset,
+            uint32_t width, uint32_t height, uint32_t depth,
+            BufferObject* bufferObject, PixelBufferDescriptor&& buffer) const;
+
     /**
      * inline helper to update a 2D texture
      *
@@ -329,6 +335,13 @@ public:
     inline void setImage(Engine& engine, size_t level, PixelBufferDescriptor&& buffer) const {
         setImage(engine, level, 0, 0, 0,
             uint32_t(getWidth(level)), uint32_t(getHeight(level)), 1, std::move(buffer));
+    }
+
+    inline void setImage(Engine& engine, size_t level, 
+            BufferObject* bufferObject, PixelBufferDescriptor&& buffer) const {
+        setImage(engine, level, 0, 0, 0,
+            uint32_t(getWidth(level)), uint32_t(getHeight(level)), 1,
+            bufferObject, std::move(buffer));
     }
 
     /**
@@ -343,6 +356,13 @@ public:
             uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
             PixelBufferDescriptor&& buffer) const {
         setImage(engine, level, xoffset, yoffset, 0, width, height, 1, std::move(buffer));
+    }
+
+    inline void setImage(Engine& engine, size_t level,
+            uint32_t xoffset, uint32_t yoffset, uint32_t width, uint32_t height,
+            BufferObject* bufferObject, PixelBufferDescriptor&& buffer) const {
+        setImage(engine, level, xoffset, yoffset, 0, width, height, 1, 
+            bufferObject, std::move(buffer));
     }
 
     /**
