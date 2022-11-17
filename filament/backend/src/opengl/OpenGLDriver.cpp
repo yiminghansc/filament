@@ -459,6 +459,7 @@ void OpenGLDriver::createBufferObjectR(Handle<HwBufferObject> boh,
     glGenBuffers(1, &bo->gl.id);
     gl.bindBuffer(bo->gl.binding, bo->gl.id);
     glBufferData(bo->gl.binding, byteCount, nullptr, getBufferUsage(usage));
+    gl.bindBuffer(bo->gl.binding, 0);
     CHECK_GL_ERROR(utils::slog.e)
 }
 
@@ -1685,6 +1686,29 @@ void OpenGLDriver::makeCurrent(Handle<HwSwapChain> schDraw, Handle<HwSwapChain> 
 // Updating driver objects
 // ------------------------------------------------------------------------------------------------
 
+void OpenGLDriver::getBufferObjectHwResource(Handle<HwBufferObject> boh,
+        GPUBufferCallback callback, void* user) {
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+    void* hwResource = &(bo->gl.id);
+    callback(hwResource, bo->byteCount, user);
+}
+
+void OpenGLDriver::getBufferData(Handle<HwBufferObject> boh,
+        BufferDescriptor&& bd, uint32_t byteOffset) {
+    DEBUG_MARKER()
+    auto& gl = mContext;
+
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+    GLuint pbo = bo->gl.id;
+    gl.bindBuffer(bo->gl.binding, pbo);
+    void* vaddr = glMapBufferRange(bo->gl.binding, byteOffset, bd.size, GL_MAP_READ_BIT);
+    memcpy(bd.buffer, vaddr, bd.size);
+    glUnmapBuffer(bo->gl.binding);
+    gl.bindBuffer(bo->gl.binding, 0);
+
+    CHECK_GL_ERROR(utils::slog.e)
+}
+
 void OpenGLDriver::setVertexBufferObject(Handle<HwVertexBuffer> vbh,
         uint32_t index, Handle<HwBufferObject> boh) {
    DEBUG_MARKER()
@@ -1901,6 +1925,30 @@ void OpenGLDriver::update3DImage(Handle<HwTexture> th,
         setTextureData(t,
                 level, xoffset, yoffset, zoffset, width, height, depth, std::move(data));
     }
+}
+
+void OpenGLDriver::update3DImageWithBuffer(Handle<HwTexture> th,
+        uint32_t level, uint32_t xoffset, uint32_t yoffset, uint32_t zoffset,
+        uint32_t width, uint32_t height, uint32_t depth,
+        Handle<HwBufferObject> boh, PixelBufferDescriptor&& data) {
+    DEBUG_MARKER()
+
+    auto& gl = mContext;
+    GLTexture* t = handle_cast<GLTexture *>(th);
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+
+    GLuint pbo = bo->gl.id;
+    gl.bindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+
+    if (data.type == PixelDataType::COMPRESSED) {
+        setCompressedTextureData(t,
+                level, xoffset, yoffset, zoffset, width, height, depth, std::move(data));
+    } else {
+        setTextureData(t,
+                level, xoffset, yoffset, zoffset, width, height, depth, std::move(data));
+    }
+
+    gl.bindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
 void OpenGLDriver::generateMipmaps(Handle<HwTexture> th) {
@@ -2775,6 +2823,38 @@ void OpenGLDriver::readPixels(Handle<HwRenderTarget> src,
         scheduleDestroy(std::move(p));
         delete pUserBuffer;
         CHECK_GL_ERROR(utils::slog.e)
+    });
+}
+
+void OpenGLDriver::readPixelsToBuffer(Handle<HwRenderTarget> src,
+        uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+        backend::BufferObjectHandle boh,
+        PixelBufferDescriptor&& p) {
+    DEBUG_MARKER()
+    auto& gl = mContext;
+
+    GLenum glFormat = getFormat(p.format);
+    GLenum glType = getType(p.type);
+
+    gl.pixelStore(GL_PACK_ROW_LENGTH,   (GLint)p.stride);
+    gl.pixelStore(GL_PACK_ALIGNMENT,    (GLint)p.alignment);
+    gl.pixelStore(GL_PACK_SKIP_PIXELS,  (GLint)p.left);
+    gl.pixelStore(GL_PACK_SKIP_ROWS,    (GLint)p.top);
+
+    GLRenderTarget const* s = handle_cast<GLRenderTarget const*>(src);
+    gl.bindFramebuffer(GL_READ_FRAMEBUFFER, s->gl.fbo);
+
+    GLBufferObject* bo = handle_cast<GLBufferObject *>(boh);
+    GLuint pbo = bo->gl.id;
+    gl.bindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glReadPixels(GLint(x), GLint(y), GLint(width), GLint(height), glFormat, glType, nullptr);
+    gl.bindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    CHECK_GL_ERROR(utils::slog.e)
+
+    auto* pUserBuffer = new PixelBufferDescriptor(std::move(p));
+    whenGpuCommandsComplete([pbo, pUserBuffer]() mutable {
+        pUserBuffer->buffer = &pbo;
+        delete pUserBuffer;
     });
 }
 

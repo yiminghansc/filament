@@ -18,6 +18,7 @@
 
 #include "details/Engine.h"
 #include "details/Stream.h"
+#include "details/BufferObject.h"
 
 #include "private/backend/BackendUtils.h"
 
@@ -276,6 +277,80 @@ void FTexture::setImage(FEngine& engine, size_t level,
 
     engine.getDriverApi().update3DImage(mHandle,
             uint8_t(level), xoffset, yoffset, zoffset, width, height, depth, std::move(buffer));
+}
+
+void FTexture::setImage(FEngine& engine, size_t level,
+        uint32_t xoffset, uint32_t yoffset, uint32_t zoffset,
+        uint32_t width, uint32_t height, uint32_t depth,
+        FBufferObject* bufferObject, FTexture::PixelBufferDescriptor&& buffer) const {
+
+    auto validateTarget = [&engine](SamplerType sampler) -> bool {
+        switch (sampler) {
+            case SamplerType::SAMPLER_2D:
+            case SamplerType::SAMPLER_3D:
+            case SamplerType::SAMPLER_2D_ARRAY:
+            case SamplerType::SAMPLER_CUBEMAP:
+                return true;
+            case SamplerType::SAMPLER_EXTERNAL:
+                return false;
+            case SamplerType::SAMPLER_CUBEMAP_ARRAY:
+                return engine.hasFeatureLevel(FeatureLevel::FEATURE_LEVEL_2);
+        }
+    };
+
+    ASSERT_PRECONDITION(buffer.type == PixelDataType::COMPRESSED ||
+            validatePixelFormatAndType(mFormat, buffer.format, buffer.type),
+            "The combination of internal format=%u and {format=%u, type=%u} is not supported.",
+            unsigned(mFormat), unsigned(buffer.format), unsigned(buffer.type));
+
+    ASSERT_PRECONDITION(!mStream, "setImage() called on a Stream texture.");
+
+    ASSERT_PRECONDITION(level < mLevelCount,
+            "level=%u is >= to levelCount=%u.", unsigned(level), unsigned(mLevelCount));
+
+    ASSERT_PRECONDITION(validateTarget(mTarget),
+            "Texture Sampler type (%u) not supported for this operation.", unsigned(mTarget));
+
+    ASSERT_PRECONDITION(mSampleCount <= 1,
+            "Operation not supported with multisample (%u) texture.", unsigned(mSampleCount));
+
+    ASSERT_PRECONDITION(xoffset + width <= valueForLevel(level, mWidth),
+            "xoffset (%u) + width (%u) > texture width (%u) at level (%u)",
+            unsigned(xoffset), unsigned(width), unsigned(valueForLevel(level, mWidth)), unsigned(level));
+
+    ASSERT_PRECONDITION(yoffset + height <= valueForLevel(level, mHeight),
+            "yoffset (%u) + height (%u) > texture height (%u) at level (%u)",
+            unsigned(yoffset), unsigned(height), unsigned(valueForLevel(level, mHeight)), unsigned(level));
+
+    uint32_t effectiveTextureDepthOrLayers;
+    switch (mTarget) {
+        case SamplerType::SAMPLER_EXTERNAL:
+            // can't happen by construction, fallthrough...
+        case SamplerType::SAMPLER_2D:
+            assert_invariant(mDepth == 1);
+            effectiveTextureDepthOrLayers = 1;
+            break;
+        case SamplerType::SAMPLER_3D:
+            effectiveTextureDepthOrLayers = valueForLevel(level, mDepth);
+            break;
+        case SamplerType::SAMPLER_2D_ARRAY:
+            effectiveTextureDepthOrLayers = mDepth;
+            break;
+        case SamplerType::SAMPLER_CUBEMAP:
+            effectiveTextureDepthOrLayers = 6;
+            break;
+        case SamplerType::SAMPLER_CUBEMAP_ARRAY:
+            effectiveTextureDepthOrLayers = mDepth * 6;
+            break;
+    }
+
+    ASSERT_PRECONDITION(zoffset + depth <= effectiveTextureDepthOrLayers,
+            "zoffset (%u) + depth (%u) > texture depth (%u) at level (%u)",
+            unsigned(zoffset), unsigned(depth), effectiveTextureDepthOrLayers, unsigned(level));
+
+    engine.getDriverApi().update3DImageWithBuffer(mHandle,
+            uint8_t(level), xoffset, yoffset, zoffset, width, height, depth,
+            bufferObject->getHwHandle(), std::move(buffer));
 }
 
 // deprecated

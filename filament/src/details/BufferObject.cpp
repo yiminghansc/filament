@@ -24,6 +24,11 @@ namespace filament {
 
 struct BufferObject::BuilderDetails {
     BindingType mBindingType = BindingType::VERTEX;
+    BufferUsage mBufferUsage = BufferUsage::STATIC;
+    CreateCallback mCreateCallback = nullptr;
+    void* mCreateCallbackUserData = nullptr;
+    DestroyCallback mDestroyCallback = nullptr;
+    void* mDestroyCallbackUserData = nullptr;
     uint32_t mByteCount = 0;
 };
 
@@ -45,6 +50,23 @@ BufferObject::Builder& BufferObject::Builder::bindingType(BindingType bindingTyp
     return *this;
 }
 
+BufferObject::Builder& BufferObject::Builder::bufferUsage(BufferUsage bufferUsage) noexcept {
+    mImpl->mBufferUsage = bufferUsage;
+    return *this;
+}
+
+BufferObject::Builder& BufferObject::Builder::createCallback(CreateCallback callback, void* user) noexcept {
+    mImpl->mCreateCallback = callback;
+    mImpl->mCreateCallbackUserData = user;
+    return *this;
+}
+
+BufferObject::Builder& BufferObject::Builder::destroyCallback(DestroyCallback callback, void* user) noexcept {
+    mImpl->mDestroyCallback = callback;
+    mImpl->mDestroyCallbackUserData = user;
+    return *this;
+}
+
 BufferObject* BufferObject::Builder::build(Engine& engine) {
     return downcast(engine).createBufferObject(*this);
 }
@@ -52,19 +74,30 @@ BufferObject* BufferObject::Builder::build(Engine& engine) {
 // ------------------------------------------------------------------------------------------------
 
 FBufferObject::FBufferObject(FEngine& engine, const BufferObject::Builder& builder)
-        : mByteCount(builder->mByteCount), mBindingType(builder->mBindingType) {
+        : mByteCount(builder->mByteCount), mBindingType(builder->mBindingType),
+            mBufferUsage(builder->mBufferUsage), mDestroyCallback(builder->mDestroyCallback),
+            mDestroyCallbackUserData(builder->mDestroyCallbackUserData) {
     FEngine::DriverApi& driver = engine.getDriverApi();
-    mHandle = driver.createBufferObject(builder->mByteCount, builder->mBindingType,
-            backend::BufferUsage::STATIC);
+    mHandle = driver.createBufferObject(mByteCount, mBindingType, mBufferUsage);
+    if (builder->mCreateCallback) {
+        driver.getBufferObjectHwResource(mHandle, builder->mCreateCallback, builder->mCreateCallbackUserData);
+    }
 }
 
 void FBufferObject::terminate(FEngine& engine) {
     FEngine::DriverApi& driver = engine.getDriverApi();
+    if (mDestroyCallback) {
+        driver.getBufferObjectHwResource(mHandle, mDestroyCallback, mDestroyCallbackUserData);
+    }
     driver.destroyBufferObject(mHandle);
 }
 
 void FBufferObject::setBuffer(FEngine& engine, BufferDescriptor&& buffer, uint32_t byteOffset) {
     engine.getDriverApi().updateBufferObject(mHandle, std::move(buffer), byteOffset);
+}
+
+void FBufferObject::getBuffer(FEngine& engine, BufferDescriptor&& buffer, uint32_t byteOffset) {
+    engine.getDriverApi().getBufferData(mHandle, std::move(buffer), byteOffset);
 }
 
 } // namespace filament

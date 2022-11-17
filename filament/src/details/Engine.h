@@ -337,6 +337,8 @@ public:
 
     bool execute();
 
+    void queueCommand(Command command);
+
     utils::JobSystem& getJobSystem() noexcept {
         return mJobSystem;
     }

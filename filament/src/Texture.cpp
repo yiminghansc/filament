@@ -18,6 +18,7 @@
 
 #include "details/Engine.h"
 #include "details/Stream.h"
+#include "details/BufferObject.h"
 
 namespace filament {
 
@@ -51,6 +52,15 @@ void Texture::setImage(Engine& engine, size_t level,
         PixelBufferDescriptor&& buffer) const {
     downcast(this)->setImage(downcast(engine),
             level, xoffset, yoffset, zoffset, width, height, depth, std::move(buffer));
+}
+
+void Texture::setImage(Engine& engine, size_t level,
+        uint32_t xoffset, uint32_t yoffset, uint32_t zoffset,
+        uint32_t width, uint32_t height, uint32_t depth,
+        BufferObject* bufferObject, PixelBufferDescriptor&& buffer) const {
+    downcast(this)->setImage(downcast(engine),
+            level, xoffset, yoffset, zoffset, width, height, depth,
+            downcast(bufferObject), std::move(buffer));
 }
 
 void Texture::setImage(Engine& engine, size_t level,
