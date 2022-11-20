@@ -80,9 +80,19 @@ include_directories(${GENERATION_ROOT})
 
 add_library(${TARGET} STATIC ${PUBLIC_HDRS} ${SRCS} ${RESGEN_SOURCE})
 
-target_link_libraries(${TARGET} PUBLIC imgui filament)
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} PUBLIC imgui::imgui filament)
+else()
+  target_link_libraries(${TARGET} PUBLIC imgui filament)
+endif()
 
-target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+if(HUNTER_ENABLED)
+  target_include_directories(${TARGET} PUBLIC  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+else()
+  target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+endif()
 set_target_properties(${TARGET} PROPERTIES FOLDER Libs)
 
 # ==================================================================================================

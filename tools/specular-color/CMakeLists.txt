@@ -13,7 +13,14 @@ set(SRCS src/main.cpp)
 # ==================================================================================================
 add_executable(${TARGET} ${SRCS})
 
-target_link_libraries(${TARGET} getopt utils math)
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} utils math)
+  if (MSVC)
+    target_link_libraries(${TARGET} getopt::getopt)
+  endif()
+else()
+  target_link_libraries(${TARGET} getopt utils math)
+endif()
 
 set_target_properties(${TARGET} PROPERTIES FOLDER Tools)
 
@@ -28,5 +35,5 @@ target_include_directories(${TARGET} PRIVATE ${GENERATION_ROOT})
 # ==================================================================================================
 # Installation
 # ==================================================================================================
-install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} RUNTIME DESTINATION bin)
 install(FILES "README.md" DESTINATION docs/ RENAME "${TARGET}.md")

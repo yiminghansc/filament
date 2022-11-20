@@ -22,7 +22,11 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warray-bounds"
-#include <basisu_comp.h>
+#ifdef FILAMENT_USE_HUNTER
+    #include <basis_universal/basisu_comp.h>
+#else
+    #include <basisu_comp.h>
+#endif
 #pragma clang diagnostic pop
 
 namespace image {

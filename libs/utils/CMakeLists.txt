@@ -96,9 +96,19 @@ endif()
 include_directories(${PUBLIC_HDR_DIR})
 
 add_library(${TARGET} STATIC ${PUBLIC_HDRS} ${SRCS})
-target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+if(HUNTER_ENABLED)
+  target_include_directories(${TARGET} PUBLIC  
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${PUBLIC_HDR_DIR}>  
+    $<INSTALL_INTERFACE:${PUBLIC_HDR_DIR}>)
+else()
+  target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+endif()
 set_target_properties(${TARGET} PROPERTIES FOLDER Libs)
-target_link_libraries(${TARGET} PUBLIC tsl)
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} PUBLIC tsl::robin_map)
+else()
+  target_link_libraries(${TARGET} PUBLIC tsl)
+endif()
 
 if (ANDROID)
     target_link_libraries(${TARGET} PUBLIC log)
@@ -122,7 +132,13 @@ endif()
 # Installation
 # ==================================================================================================
 set(INSTALL_TYPE ARCHIVE)
-install(TARGETS ${TARGET} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+
+if(HUNTER_ENABLED)
+  install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+else()
+  install(TARGETS ${TARGET} ${INSTALL_TYPE} DESTINATION lib/${DIST_DIR})
+endif()
+
 install(FILES ${DIST_HDRS} DESTINATION include/${TARGET})
 if (ANDROID)
     install(FILES ${DIST_ANDROID_HDRS} DESTINATION include/${TARGET_LINUX})
@@ -170,8 +186,13 @@ endif()
 
 add_executable(test_${TARGET} ${TEST_SRCS})
 
-target_link_libraries(test_${TARGET} PRIVATE gtest utils tsl math)
+if(HUNTER_ENABLED)
+  target_link_libraries(test_${TARGET} PRIVATE GTest::gtest GTest::gtest_main utils tsl::robin_map math)
+else()
+  target_link_libraries(test_${TARGET} PRIVATE gtest utils tsl math)
+endif()
 set_target_properties(test_${TARGET} PROPERTIES FOLDER Tests)
+
 
 # ==================================================================================================
 # Benchmarks
@@ -193,7 +214,11 @@ if (NOT WEBGL)
 
     add_executable(benchmark_${TARGET} ${BENCHMARK_SRCS})
 
-    target_link_libraries(benchmark_${TARGET} PRIVATE benchmark_main utils benchmark_${TARGET}_callee)
+    if(HUNTER_ENABLED)
+      target_link_libraries(benchmark_${TARGET} PRIVATE benchmark::benchmark benchmark::benchmark_main utils benchmark_${TARGET}_callee)
+    else()
+      target_link_libraries(benchmark_${TARGET} PRIVATE benchmark_main utils benchmark_${TARGET}_callee)
+    endif()
 
     set_target_properties(benchmark_${TARGET} PROPERTIES FOLDER Benchmarks)
 
