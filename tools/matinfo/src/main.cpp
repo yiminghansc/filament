@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#ifndef FILAMENT_USE_HUNTER
 #include <getopt/getopt.h>
+#else
+#include <getopt.h>
+#endif
 
 #include <utils/Path.h>
 

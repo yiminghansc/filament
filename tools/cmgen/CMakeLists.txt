@@ -22,7 +22,15 @@ set(SRCS
 # ==================================================================================================
 add_executable(${TARGET} ${HDRS} ${SRCS})
 
-target_link_libraries(${TARGET} PRIVATE math utils ibl z image imageio getopt)
+if(HUNTER_ENABLED)
+  target_link_libraries(${TARGET} PRIVATE math utils ibl ZLIB::zlib image imageio)
+  if (MSVC)
+    target_link_libraries(${TARGET} PRIVATE getopt::getopt)
+  endif()
+else()
+  target_link_libraries(${TARGET} PRIVATE math utils ibl z image imageio getopt)
+endif()
+
 set_target_properties(${TARGET} PROPERTIES FOLDER Tools)
 
 # ==================================================================================================
@@ -49,13 +57,17 @@ target_include_directories(${TARGET} PRIVATE ${GENERATION_ROOT})
 # ==================================================================================================
 # Installation
 # ==================================================================================================
-install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET} EXPORT ${TARGETS_EXPORT_NAME} RUNTIME DESTINATION bin)
 
 # ==================================================================================================
 # Tests
 # ==================================================================================================
 if (NOT ANDROID)
     add_executable(test_${TARGET} tests/test_cmgen.cpp)
-    target_link_libraries(test_${TARGET} PRIVATE image imageio gtest)
+    if(HUNTER_ENABLED)
+      target_link_libraries(test_${TARGET} PRIVATE image imageio GTest::gtest GTest::gtest_main Threads::Threads)
+    else()
+      target_link_libraries(test_${TARGET} PRIVATE image imageio gtest)
+    endif()
     set_target_properties(test_${TARGET} PROPERTIES FOLDER Tests)
 endif()

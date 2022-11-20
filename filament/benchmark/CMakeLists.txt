@@ -10,6 +10,10 @@ set(BENCHMARK_SRCS
 
 add_executable(benchmark_filament ${BENCHMARK_SRCS})
 
-target_link_libraries(benchmark_filament PRIVATE benchmark_main utils math filament)
+if(HUNTER_ENABLED)
+  target_link_libraries(benchmark_filament PRIVATE benchmark::benchmark benchmark::benchmark_main utils math filament)
+else()
+  target_link_libraries(benchmark_filament PRIVATE benchmark_main utils math filament)
+endif()
 
 set_target_properties(benchmark_filament PROPERTIES FOLDER Benchmarks)

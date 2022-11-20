@@ -37,7 +37,28 @@ set(SRCS
         src/Sphere.cpp
 )
 
-set(LIBS
+if(HUNTER_ENABLED)
+    set(LIBS
+        Assimp::assimp
+        camutils
+        filagui
+        filamat
+        filament
+        filament-iblprefilter
+        geometry
+        image
+        imgui::imgui
+        ktxreader
+        math
+        SDL2::sdl2
+        stb::stb
+        utils
+    )
+    if(WIN32)
+        list(APPEND LIBS getopt::getopt)
+    endif()
+else()
+    set(LIBS
         assimp
         camutils
         filagui
@@ -53,7 +74,8 @@ set(LIBS
         sdl2
         stb
         utils
-)
+    )
+endif()
 
 set(MATERIAL_SRCS
         materials/aiDefaultMat.mat
@@ -73,7 +95,11 @@ endif()
 
 if (WIN32)
     list(APPEND SRCS src/NativeWindowHelperWindows.cpp)
-    list(APPEND LIBS sdl2main)
+    if(HUNTER_ENABLED)
+      list(APPEND LIBS SDL2::SDL2main)
+    else()
+      list(APPEND LIBS sdl2main)
+    endif()
 endif()
 
 # ==================================================================================================

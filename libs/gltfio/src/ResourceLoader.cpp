@@ -38,7 +38,11 @@
 #include <utils/Path.h>
 
 #include <cgltf.h>
+#ifdef FILAMENT_USE_HUNTER
+#include <meshoptimizer/meshoptimizer.h>
+#else
 #include <meshoptimizer.h>
+#endif
 
 #include <math/quat.h>
 #include <math/vec3.h>

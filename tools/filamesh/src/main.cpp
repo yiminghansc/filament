@@ -30,7 +30,11 @@
 
 #include <filameshio/filamesh.h>
 
+#ifndef FILAMENT_USE_HUNTER
 #include <getopt/getopt.h>
+#else
+#include <getopt.h>
+#endif
 
 using namespace filamesh;
 using namespace filament::math;

@@ -35,7 +35,11 @@
 #include <filamentapp/Config.h>
 #include <filamentapp/FilamentApp.h>
 
+#ifndef FILAMENT_USE_HUNTER
 #include <getopt/getopt.h>
+#else
+#include <getopt.h>
+#endif
 
 #include <iostream>
 
