@@ -225,7 +225,10 @@ struct FAssetLoader : public AssetLoader {
             mDefaultNodeName(config.defaultNodeName) {}
 
     FFilamentAsset* createAsset(const uint8_t* bytes, uint32_t nbytes);
+    FFilamentAsset* createAsset(const cgltf_data* sourceAsset);
     FFilamentAsset* createInstancedAsset(const uint8_t* bytes, uint32_t numBytes,
+            FilamentInstance** instances, size_t numInstances);
+    FFilamentAsset* createInstancedAsset(const cgltf_data* sourceAsset,
             FilamentInstance** instances, size_t numInstances);
     FilamentInstance* createInstance(FFilamentAsset* primary);
     void importSkins(FFilamentAsset* primary, FFilamentInstance* instance,
@@ -315,6 +318,11 @@ FFilamentAsset* FAssetLoader::createAsset(const uint8_t* bytes, uint32_t byteCou
     return createInstancedAsset(bytes, byteCount, &instances, 1);
 }
 
+FFilamentAsset* FAssetLoader::createAsset(const cgltf_data* sourceAsset) {
+    FilamentInstance* instances;
+    return createInstancedAsset(sourceAsset, &instances, 1);
+}
+
 FFilamentAsset* FAssetLoader::createInstancedAsset(const uint8_t* bytes, uint32_t byteCount,
         FilamentInstance** instances, size_t numInstances) {
     // This method can be used to load JSON or GLB. By using a default options struct, we are asking
@@ -365,6 +373,51 @@ FFilamentAsset* FAssetLoader::createInstancedAsset(const uint8_t* bytes, uint32_
      }
 
     glbdata.swap(mAsset->mSourceAsset->glbData);
+    std::copy_n(mAsset->mInstances.data(), numInstances, instances);
+    return mAsset;
+}
+
+FFilamentAsset* FAssetLoader::createInstancedAsset(const cgltf_data* sourceAsset,
+        FilamentInstance** instances, size_t numInstances) {
+    // This method can be used to load JSON or GLB. By using a default options struct, we are asking
+    // cgltf to examine the magic identifier to determine which type of file is being loaded.
+    cgltf_options options {};
+
+    if constexpr (!GLTFIO_USE_FILESYSTEM) {
+
+        // Provide a custom free callback for each buffer that was loaded from a "file", as opposed
+        // to a data:// URL.
+        //
+        // Since GLTFIO_USE_FILESYSTEM is false, ResourceLoader requires the app provide the file
+        // content from outside, so we need to do nothing here, as opposed to the default, which is
+        // to call "free".
+        //
+        // This callback also gets called for the root-level file_data, but since we use
+        // `cgltf_parse`, the file_data field is always null.
+        options.file.release = [](const cgltf_memory_options*, const cgltf_file_options*, void*) {};
+    }
+
+    if (!sourceAsset) {
+        slog.e << "Invalid source gltf asset." << io::endl;
+        return nullptr;
+    }
+
+    createRootAsset(sourceAsset);
+    if (mError) {
+        delete mAsset;
+        mAsset = nullptr;
+        mError = false;
+        return nullptr;
+    }
+
+    createInstances(sourceAsset, numInstances);
+    if (mError) {
+        delete mAsset;
+        mAsset = nullptr;
+        mError = false;
+        return nullptr;
+    }
+
     std::copy_n(mAsset->mInstances.data(), numInstances, instances);
     return mAsset;
 }
@@ -1572,9 +1625,18 @@ FilamentAsset* AssetLoader::createAsset(uint8_t const* bytes, uint32_t nbytes) {
     return downcast(this)->createAsset(bytes, nbytes);
 }
 
+FilamentAsset* AssetLoader::createAsset(const cgltf_data* sourceAsset) {
+    return downcast(this)->createAsset(sourceAsset);
+}
+
 FilamentAsset* AssetLoader::createInstancedAsset(const uint8_t* bytes, uint32_t numBytes,
         FilamentInstance** instances, size_t numInstances) {
     return downcast(this)->createInstancedAsset(bytes, numBytes, instances, numInstances);
+}
+
+FilamentAsset* AssetLoader::createInstancedAsset(const cgltf_data* sourceAsset,
+        FilamentInstance** instances, size_t numInstances) {
+    return downcast(this)->createInstancedAsset(sourceAsset, instances, numInstances);
 }
 
 FilamentInstance* AssetLoader::createInstance(FilamentAsset* asset) {
