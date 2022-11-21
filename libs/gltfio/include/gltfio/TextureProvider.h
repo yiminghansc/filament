@@ -23,6 +23,8 @@
 #include <utils/compiler.h>
 #include <utils/BitmaskEnum.h>
 
+class cgltf_texture;
+
 namespace filament {
     class Engine;
     class Texture;
@@ -90,7 +92,16 @@ public:
      * Texture object, but it is only safe to do so after it has been popped from the queue.
      */
     virtual Texture* pushTexture(const uint8_t* data, size_t byteCount,
-            const char* mimeType, TextureFlags flags) = 0;
+            const char* mimeType, TextureFlags flags) {
+        return nullptr;
+    }
+
+    /**
+     * Alternate version of pushTexture, takes raw cgltf_texture data to allow more control.
+     */
+    virtual Texture* pushTexture(const cgltf_texture* srcTexture, TextureFlags flags) {
+        return nullptr;
+    }
 
     /**
      * Checks if any texture is ready to be removed from the asynchronous decoding queue, and if so
