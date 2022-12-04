@@ -791,7 +791,6 @@ void FAssetLoader::createRenderable(const cgltf_data* srcAsset, const cgltf_node
     // If desired, clients can call "recomputeBoundingBoxes()" in FilamentInstance.
     Box box = Box().set(aabb.min, aabb.max);
     if (box.isEmpty()) {
-        slog.w << "Missing bounding box in " << name << io::endl;
         box = Box().set(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max());
     }
 
