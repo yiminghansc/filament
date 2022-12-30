@@ -43,7 +43,7 @@ set(DIST_HDRS
 )
 
 # Use our custom mutex/condition only on ANDROID
-set(DIST_ANDROID_HDRS
+set(DIST_LINUX_HDRS
         ${PUBLIC_HDR_DIR}/${TARGET_LINUX}/Mutex.h
 )
 
@@ -140,8 +140,8 @@ else()
 endif()
 
 install(FILES ${DIST_HDRS} DESTINATION include/${TARGET})
-if (ANDROID)
-    install(FILES ${DIST_ANDROID_HDRS} DESTINATION include/${TARGET_LINUX})
+if (LINUX OR ANDROID)
+    install(FILES ${DIST_LINUX_HDRS} DESTINATION include/${TARGET_LINUX})
 else()
     install(FILES ${DIST_GENERIC_HDRS} DESTINATION include/${TARGET_GENERIC})
 endif()
