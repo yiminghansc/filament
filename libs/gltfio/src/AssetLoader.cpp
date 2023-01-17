@@ -1299,6 +1299,7 @@ MaterialKey FAssetLoader::getMaterialKey(const cgltf_data* srcAsset,
         .hasSheen = !!inputMat->has_sheen,
         .hasIOR = !!inputMat->has_ior,
         .hasVolume = !!inputMat->has_volume,
+        .userData = {},
     };
 
     if (inputMat->has_pbr_specular_glossiness) {
@@ -1344,7 +1345,7 @@ Material* FAssetLoader::getMaterial(const cgltf_data* srcAsset,
     }
     MaterialKey matkey = getMaterialKey(srcAsset, inputMat, uvmap, vertexColor,
             &baseColorTexture, &metallicRoughnessTexture);
-    Material* material = mMaterials.getMaterial(&matkey, uvmap, inputMat->name);
+    Material* material = mMaterials.getMaterial(&matkey, uvmap, inputMat->name, inputMat);
     assert_invariant(material);
     return material;
 }
@@ -1373,7 +1374,7 @@ MaterialInstance* FAssetLoader::createMaterialInstance(const cgltf_data* srcAsse
     // This not only creates a material instance, it modifies the material key according to our
     // rendering constraints. For example, Filament only supports 2 sets of texture coordinates.
     MaterialInstance* mi = mMaterials.createMaterialInstance(&matkey, uvmap, inputMat->name,
-            extras.c_str());
+            inputMat);
     if (!mi) {
         slog.e << "No material with the specified requirements exists." << io::endl;
         return nullptr;

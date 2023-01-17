@@ -15,6 +15,7 @@
  */
 
 #include <gltfio/MaterialProvider.h>
+#include <gltfio/JitColorShaderProvider.h>
 
 #include <filamat/MaterialBuilder.h>
 
@@ -33,13 +34,15 @@ namespace {
 
 class JitShaderProvider : public MaterialProvider {
 public:
-    explicit JitShaderProvider(Engine* engine, bool optimizeShaders);
+    explicit JitShaderProvider(Engine* engine, bool optimizeShaders,
+            JitColorShaderProvider* colorShaderProvider);
     ~JitShaderProvider() override;
 
     MaterialInstance* createMaterialInstance(MaterialKey* config, UvMap* uvmap,
-            const char* label, const char* extras) override;
+            const char* label, const cgltf_material* srcMaterial) override;
 
-    Material* getMaterial(MaterialKey* config, UvMap* uvmap, const char* label) override;
+    Material* getMaterial(MaterialKey* config, UvMap* uvmap,
+            const char* label, const cgltf_material* srcMaterial) override;
 
     size_t getMaterialsCount() const noexcept override;
     const Material* const* getMaterials() const noexcept override;
@@ -54,15 +57,21 @@ public:
     std::vector<Material*> mMaterials;
     Engine* const mEngine;
     const bool mOptimizeShaders;
+    JitColorShaderProvider* mColorShaderProvider = nullptr;
 };
 
-JitShaderProvider::JitShaderProvider(Engine* engine, bool optimizeShaders) : mEngine(engine),
-        mOptimizeShaders(optimizeShaders) {
+JitShaderProvider::JitShaderProvider(Engine* engine, bool optimizeShaders, 
+        JitColorShaderProvider* colorShaderProvider) : mEngine(engine),
+            mOptimizeShaders(optimizeShaders),
+            mColorShaderProvider(colorShaderProvider) {
     MaterialBuilder::init();
 }
 
 JitShaderProvider::~JitShaderProvider() {
     MaterialBuilder::shutdown();
+    if (mColorShaderProvider) {
+        delete mColorShaderProvider;
+    }
 }
 
 size_t JitShaderProvider::getMaterialsCount() const noexcept {
@@ -81,8 +90,13 @@ void JitShaderProvider::destroyMaterials() {
     mCache.clear();
 }
 
-std::string shaderFromKey(const MaterialKey& config) {
-    std::string shader = "void material(inout MaterialInputs material) {\n";
+std::string shaderFromKey(const MaterialKey& config, const UvMap& uvmap, const char* name, 
+        const cgltf_material* srcMaterial, JitColorShaderProvider* colorShaderProvider) {
+    std::string shader;
+    if (colorShaderProvider) {
+        shader += colorShaderProvider->getShaderString(config, uvmap, name, srcMaterial);
+    }
+    shader += "void material(inout MaterialInputs material) {\n";
 
     if (config.hasNormalTexture && !config.unlit) {
         shader += "highp float2 normalUV = ${normal};\n";
@@ -130,6 +144,10 @@ std::string shaderFromKey(const MaterialKey& config) {
         shader += R"SHADER(
             material.baseColor *= texture(materialParams_baseColorMap, baseColorUV);
         )SHADER";
+    }
+
+    if (colorShaderProvider) {
+        shader += "processBaseColor(material);\n";
     }
 
     if (config.enableDiagnostics) {
@@ -315,8 +333,9 @@ std::string shaderFromKey(const MaterialKey& config) {
 }
 
 Material* createMaterial(Engine* engine, const MaterialKey& config, const UvMap& uvmap,
-        const char* name, bool optimizeShaders) {
-    std::string shader = shaderFromKey(config);
+        const char* name, bool optimizeShaders, const cgltf_material* srcMaterial,
+        JitColorShaderProvider* colorShaderProvider) {
+    std::string shader = shaderFromKey(config, uvmap, name, srcMaterial, colorShaderProvider);
     processShaderString(&shader, uvmap, config);
     MaterialBuilder builder;
     builder.name(name)
@@ -535,12 +554,20 @@ Material* createMaterial(Engine* engine, const MaterialKey& config, const UvMap&
         builder.shading(Shading::LIT);
     }
 
+    if (colorShaderProvider) {
+        colorShaderProvider->processMaterial(builder, config, uvmap, name, srcMaterial);
+    }
+
     Package pkg = builder.build(engine->getJobSystem());
     return Material::Builder().package(pkg.getData(), pkg.getSize()).build(*engine);
 }
 
-Material* JitShaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap, const char* label) {
+Material* JitShaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap, 
+        const char* label, const cgltf_material* srcMaterial) {
     constrainMaterial(config, uvmap);
+    if (mColorShaderProvider) {
+        mColorShaderProvider->processMaterialKey(config, uvmap, label, srcMaterial);
+    }
     auto iter = mCache.find(*config);
     if (iter == mCache.end()) {
 
@@ -549,7 +576,8 @@ Material* JitShaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap, cons
         optimizeShaders = false;
 #endif
 
-        Material* mat = createMaterial(mEngine, *config, *uvmap, label, optimizeShaders);
+        Material* mat = createMaterial(mEngine, *config, *uvmap, label, optimizeShaders,
+                srcMaterial, mColorShaderProvider);
         mCache.emplace(std::make_pair(*config, mat));
         mMaterials.push_back(mat);
         return mat;
@@ -558,16 +586,21 @@ Material* JitShaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap, cons
 }
 
 MaterialInstance* JitShaderProvider::createMaterialInstance(MaterialKey* config, UvMap* uvmap,
-        const char* label, const char* extras) {
-    return getMaterial(config, uvmap, label)->createInstance(label);
+        const char* label, const cgltf_material* srcMaterial) {
+    auto instance = getMaterial(config, uvmap, label, srcMaterial)->createInstance(label);
+    if (mColorShaderProvider) {
+        mColorShaderProvider->processMaterialInstance(instance, *config, *uvmap, label, srcMaterial);
+    }
+    return instance;
 }
 
 } // anonymous namespace
 
 namespace filament::gltfio {
 
-MaterialProvider* createJitShaderProvider(filament::Engine* engine, bool optimizeShaders) {
-    return new JitShaderProvider(engine, optimizeShaders);
+MaterialProvider* createJitShaderProvider(filament::Engine* engine, bool optimizeShaders,
+        JitColorShaderProvider* colorShaderProvider) {
+    return new JitShaderProvider(engine, optimizeShaders, colorShaderProvider);
 }
 
 } // namespace filament::gltfio

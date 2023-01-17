@@ -17,6 +17,7 @@
 #include <gltfio/MaterialProvider.h>
 
 #include <string>
+#include <algorithm>
 
 namespace filament::gltfio {
 
@@ -56,7 +57,8 @@ bool operator==(const MaterialKey& k1, const MaterialKey& k2) {
         (k1.volumeThicknessUV == k2.volumeThicknessUV) &&
         (k1.hasSheen == k2.hasSheen) &&
         (k1.hasIOR == k2.hasIOR) &&
-        (k1.hasVolume == k2.hasVolume);
+        (k1.hasVolume == k2.hasVolume) &&
+        std::equal(k1.userData, k1.userData + 32, k2.userData);
 }
 
 // Filament supports up to 2 UV sets. glTF has arbitrary texcoord set indices, but it allows

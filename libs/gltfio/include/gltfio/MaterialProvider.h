@@ -26,7 +26,11 @@
 #include <array>
 #include <string>
 
+class cgltf_material;
+
 namespace filament::gltfio {
+
+class JitColorShaderProvider;
 
 enum class AlphaMode : uint8_t {
     OPAQUE,
@@ -94,9 +98,11 @@ struct alignas(4) MaterialKey {
     bool hasIOR : 1;
     bool hasVolume : 1;
     uint8_t padding : 5;
+    // -- 32 bit boundary --
+    uint8_t userData[32];
 };
 
-static_assert(sizeof(MaterialKey) == 16, "MaterialKey has unexpected size.");
+static_assert(sizeof(MaterialKey) == 48, "MaterialKey has unexpected size.");
 
 UTILS_WARNING_POP
 
@@ -145,13 +151,15 @@ public:
      *               Does not store the pointer.
      */
     virtual MaterialInstance* createMaterialInstance(MaterialKey* config, UvMap* uvmap,
-            const char* label = "material", const char* extras = nullptr) = 0;
+             const char* label = "material", const cgltf_material* srcMaterial = nullptr) = 0;
 
     /**
      * Creates or fetches a compiled Filament material corresponding to the given config.
      */
     virtual Material* getMaterial(MaterialKey* config, UvMap* uvmap,
-            const char* label = "material") { return nullptr; }
+            const char* label = "material", const cgltf_material* srcMaterial = nullptr) { 
+        return nullptr; 
+    }
 
     /**
      * Gets a weak reference to the array of cached materials.
@@ -196,7 +204,8 @@ void processShaderString(std::string* shader, const UvMap& uvmap,
  * @see createUbershaderProvider
  */
 UTILS_PUBLIC
-MaterialProvider* createJitShaderProvider(Engine* engine, bool optimizeShaders = false);
+MaterialProvider* createJitShaderProvider(Engine* engine, bool optimizeShaders = false,
+        JitColorShaderProvider* colorShaderProvider = nullptr);
 
 /**
  * Creates a material provider that loads a small set of pre-built materials.

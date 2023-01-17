@@ -194,7 +194,7 @@ if (NOT WEBGL AND NOT ANDROID AND NOT IOS)
     # ==================================================================================================
     # Link the core library with additional dependencies to create the "full" library
     # ==================================================================================================
-    add_library(${TARGET} STATIC ${PUBLIC_HDRS} src/JitShaderProvider.cpp)
+    add_library(${TARGET} STATIC ${PUBLIC_HDRS} include/gltfio/JitColorShaderProvider.h src/JitShaderProvider.cpp)
     target_link_libraries(${TARGET} PUBLIC filamat gltfio_core)
     
     if(HUNTER_ENABLED)

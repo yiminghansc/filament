@@ -71,9 +71,10 @@ public:
     ~UbershaderProvider() {}
 
     MaterialInstance* createMaterialInstance(MaterialKey* config, UvMap* uvmap,
-            const char* label, const char* extras) override;
+            const char* label, const cgltf_material* srcMaterial) override;
 
-    Material* getMaterial(MaterialKey* config, UvMap* uvmap, const char* label) override;
+    Material* getMaterial(MaterialKey* config, UvMap* uvmap, 
+            const char* label, const cgltf_material* srcMaterial) override;
 
     size_t getMaterialsCount() const noexcept override;
     const Material* const* getMaterials() const noexcept override;
@@ -167,7 +168,8 @@ Material* UbershaderProvider::getMaterial(const MaterialKey& config) const {
     return nullptr;
 }
 
-Material* UbershaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap, const char* label) {
+Material* UbershaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap,
+        const char* label, const cgltf_material* srcMaterial) {
     prepareConfig(config, label);
     constrainMaterial(config, uvmap);
     Material* material = getMaterial(*config);
@@ -182,13 +184,13 @@ Material* UbershaderProvider::getMaterial(MaterialKey* config, UvMap* uvmap, con
 
 
 MaterialInstance* UbershaderProvider::createMaterialInstance(MaterialKey* config, UvMap* uvmap,
-        const char* label, const char* extras) {
+        const char* label, const cgltf_material* srcMaterial) {
     // Diagnostics are not supported with LOAD_UBERSHADERS, please use GENERATE_SHADERS instead.
     if (config->enableDiagnostics) {
         return nullptr;
     }
 
-    Material* material = getMaterial(config, uvmap, label);
+    Material* material = getMaterial(config, uvmap, label, srcMaterial);
 
     auto getUvIndex = [uvmap](uint8_t srcIndex, bool hasTexture) -> int {
         return hasTexture ? int(uvmap->at(srcIndex)) - 1 : -1;

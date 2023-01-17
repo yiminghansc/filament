@@ -1119,10 +1119,10 @@ bool MaterialBuilder::checkMaterialLevelFeatures(MaterialInfo const& info) const
         }
         case FeatureLevel::FEATURE_LEVEL_3: {
             // TODO: we need constants somewhere for these values
-            if (userSamplerCount > 12) {
+            if (userSamplerCount > 24) {
                 slog.e << "Error: material \"" << mMaterialName.c_str()
                        << "\" has feature level " << +info.featureLevel
-                       << " and is using more than 12 samplers" << io::endl;
+                       << " and is using more than 24 samplers" << io::endl;
                 logSamplerOverflow(info.sib);
                 return false;
             }

@@ -774,6 +774,7 @@ void ResourceLoader::Impl::createTextures(FFilamentAsset* asset, bool async) {
     // Create new texture objects if they are not cached and kick off decoding jobs.
     for (size_t textureIndex = 0, n = asset->mTextures.size(); textureIndex < n; ++textureIndex) {
         FFilamentAsset::TextureInfo& info = asset->mTextures[textureIndex];
+        if (info.bindings.size() == 0) continue;
         auto [texture, cacheResult] = getOrCreateTexture(asset, textureIndex, info.flags);
         if (texture == nullptr) {
             if (cacheResult == CacheResult::NOT_READY) {
